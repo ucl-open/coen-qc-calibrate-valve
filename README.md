@@ -1,4 +1,4 @@
-# coen-calibrate-valve
+# coen-qc-calibrate-valve
 
 Calibrates a reward valve on a Coen Lab rig. It fires known pulse widths on one behavior board line and weighs what each burst delivers. rig-control turns the weights into the curve (pulse width in ms against volume per pulse in µl) where the rig's experiment workflows read it. Its bursts and weighings are the open-rigs dispense calibration's (`OpenRigs.Core:DispenseCalibration.bonsai`, see open-rigs' `docs/articles/calibration.md`), copied here without its fit; it uses the lab's open-rigs packages and has no C# of its own.
 
