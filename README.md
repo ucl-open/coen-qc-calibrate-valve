@@ -1,6 +1,10 @@
 # coen-calibrate-valve
 
-Calibrates a reward valve on a Coen Lab rig. It fires known pulse widths on one behavior board line, weighs what each delivers, and writes the curve (pulse width in ms against volume per pulse in µl) where the rig's experiment workflows read it. It is built from the open-rigs dispense calibration (`OpenRigs.Core:DispenseCalibration.bonsai`, see open-rigs' `docs/articles/calibration.md`) and the lab's open-rigs packages, with no C# of its own.
+Calibrates a reward valve on a Coen Lab rig. It fires known pulse widths on one behavior board line and weighs what each burst delivers. rig-control turns the weights into the curve (pulse width in ms against volume per pulse in µl) where the rig's experiment workflows read it. Its bursts and weighings are the open-rigs dispense calibration's (`OpenRigs.Core:DispenseCalibration.bonsai`, see open-rigs' `docs/articles/calibration.md`), copied here without its fit; it uses the lab's open-rigs packages and has no C# of its own.
+
+## Bonsai Measures, rig-control Computes
+
+This workflow drives the board and writes each burst's weights, nothing more. The curve, its checks and its history are written by rig-control's Python (`calibrations.py`, `fit_run` and `rebuild`), with tests, once the run has completed. The lab's rule (Pip, 7 Nov 2026) is that fits and derived files are tested Python, never C# in a workflow. The copied steps (`RunCalibration`, with `PrimeAndWeighBaseline` and `FireAndWeighSample`) no longer follow upstream's `DispenseCalibration`.
 
 Run it from rig-control's Calibrations page, the only place it is offered: it is not in the Setup page's Workflow list. It is an open-rigs project under `ExperimentControl`, which the page launches, watches and stops.
 
@@ -10,10 +14,10 @@ Run it from rig-control's Calibrations page, the only place it is offered: it is
   - `PortName`: `behaviorBoard: main: portName`.
   - `OutputPulseEnable`: its `pulseController: outputPulseEnable`, written with commas (`DO1, DO2`).
   - `Channel`: the line's number.
-  - `FileName`: the line's artefact name. That is its own `artefact:` when rig.yml already calibrates it, else `valve-DO<n>`.
+  - `FileName`: the line's calibration name. That is its own `artefact:` when rig.yml already calibrates it, else `valve-DO<n>`.
   - `CameraSerialNumber`, `CameraExposureTime`: `camera: body:`'s, and `CameraFrequency`: `cameraTriggerController: trigger0Frequency`. The body camera runs on camera trigger 0 (DO0) and is streamed by `OpenRigs.LiveView` (5558) for the Calibrations page to show live; nothing is recorded. Trigger 1 stays off, so DO1 stays a valve line.
   
-  `Notes` (free text kept in the curve) is taken only from a run in the Bonsai editor; the page sends none. The page refuses a line that `outputPulseEnable` does not list, and does not show one rig.yml gives another job (the domes' DO3, the Zapit TTL).
+  The page refuses a line that `outputPulseEnable` does not list, and does not show one rig.yml gives another job (the domes' DO3, the Zapit TTL).
 - **`config\valve-calibration.yml`**: the procedure (pulse widths, repeats, priming, fit, and how long each weighing waits). Committed, the same for every rig. Seven widths, closer together at the short end (20, 25, 30, 40, 50, 70 and 100 ms), each measured 3 times in rounds of all seven in a shuffled order (fixed in the file), each burst weighed once: 21 weighings. Per burst 20 ms x 500, 25 ms x 400, 30 ms x 333, 40 ms x 250, 50 ms x 200, 70 ms x 143, 100 ms x 100 pulses, so every burst delivers about what 500 pulses at 20 ms do (volume taken as proportional to width). Pulses are 63 ms apart, 1.25 times the 50 ms av-dome leaves between a reward's pulses (rig.yml `interPulseInterval`).
 
 ## The Balance, Read by Eye
@@ -29,7 +33,13 @@ The body camera can see the balance's display, so rig-control's Calibrations pag
 1. On the Calibrations page, press the line's **Go** and give your Lab PIN.
 2. **Ready** once the board has answered. Put a container on the balance under the spout.
 3. Press **Start**. The procedure primes the line (5 pulses of 500 ms), asks for the baseline weight, fires each sample's pulses and asks for each weight.
-4. **Finished** once `calibration\<FileName>.json` is written beside rig.yml, with a dated copy in `calibration\history\`. The page lists the volume per pulse at each width (`points`) and shows the new curve. A curve that is not monotone is refused and nothing is written.
+4. **Finished** once every burst is weighed (`points` says how many). rig-control then builds the curve and the page lists the volume per pulse at each width and shows it, or says why nothing was written.
+
+## What It Writes
+
+The workflow writes `calibration\<FileName>-weights.csv` beside rig.yml, one row per burst as it is weighed, replaced each run: `size` (pulse width, ms), `repeats` (pulses), `before` and `after` (the balance in grams before and after the burst; the first row's `before` is the baseline after priming).
+
+Once the run completes, rig-control writes `calibration\<FileName>.json`, the open-rigs `CalibrationCurve` that experiments' `CalibratedPulse` reads: each sample's volume per pulse is its gain over its pulses and the density, in µl, as `DispenseCalibration` built it. A dated copy goes in `calibration\history\`, with the run's weights under the same date (kept whether or not they could be fitted). It refuses, writing no curve, a run that did not weigh every burst, bursts that are not the procedure's (the file changed since), a burst that delivered nothing, and a curve that is not monotone. A run that is stopped is not fitted.
 
 A line still set to `FixedPulse` keeps its fixed width until rig.yml points it at the artefact. The Calibrations page says so, and its Use Calibration button makes that change, once asked and with a Lab PIN, to that line alone (the rest of rig.yml, comments included, kept as it was, the old file in `_backups`):
 
@@ -37,7 +47,7 @@ A line still set to `FixedPulse` keeps its fixed width until rig.yml points it a
 DO1: { discriminatorType: CalibratedPulse, artefact: calibration/valve-DO1.json }
 ```
 
-`calibratedBy` is whoever pressed Start (the workflow's Go), as rig-control knows them from the Lab PIN (OpenRigs.Control `GoByName`).
+`calibratedBy` is whoever launched the run, as rig-control knows them from the Lab PIN.
 
 ## Setup
 
