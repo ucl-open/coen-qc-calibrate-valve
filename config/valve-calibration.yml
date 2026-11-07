@@ -1,13 +1,14 @@
-# Settings of the valve calibration (OpenRigs.Core DispenseCalibration), read at Start by
-# src\main.bonsai. The valve line, its artefact and the behavior board's port come from the rig's
-# own rig.yml, through rig-control's launch, never from here.
+# Settings of the valve calibration (OpenRigs.Core DispenseCalibration's form), read at Start by
+# src\main.bonsai for the bursts and by rig-control for the fit (fit, densityGPerMl, requireMonotone;
+# fitOrder is unused, since only LinearFit is built). The valve line, its file name and the behavior
+# board's port come from the rig's own rig.yml, through rig-control's launch, never from here.
 #
 # The balance is read by eye (OpenRigs.Devices ManualBalance): after each burst the run asks for the
 # weight and waits up to weighTimeoutS for it to be typed, taking that one reading (settleWindow 1).
 # Each sample fires `repeats` pulses at `size` ms, then weighs the gain. Seven widths, closer
 # together at the short end: 20, 25, 30, 40, 50, 70 and 100 ms, each measured 3 times, in rounds of
 # all seven in a shuffled order (fixed here, the same every run), so drift over the run falls on
-# every width alike; the fit (LinearFit) averages the repeats. Every burst delivers about what 500
+# every width alike; each burst is a point of the curve, so a line fitted to it (LinearFit) averages the repeats. Every burst delivers about what 500
 # pulses at 20 ms do, taking volume as proportional to width: 500 at 20 ms, 400 at 25, 333 at 30,
 # 250 at 40, 200 at 50, 143 at 70 and 100 at 100 (Pip, 6 Nov 2026). Pulses are 63 ms apart, 1.25
 # times the 50 ms av-dome leaves between a reward's pulses (rig.yml interPulseInterval).

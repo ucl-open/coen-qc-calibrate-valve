@@ -111,7 +111,7 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Hardware</Name>
-        <Description>The behavior board on PortName, with the PulseController pulsing the OutputPulseEnable lines: its TriggerCalibratedPulse fires one pulse of a given width on a line, as in a session. The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. Ready once the board has sent an event. The body camera (CameraSerialNumber, CameraExposureTime) runs on camera trigger 0 (DO0, at CameraFrequency), started 2 s in, publishing Camera-Body.Data for the live view only: nothing is recorded. Trigger 1 stays off, so DO1 stays a valve line.</Description>
+        <Description>The behavior board on PortName, with the PulseController pulsing the OutputPulseEnable lines: its TriggerCalibratedPulse fires one pulse of a given width on a line, as in a session. The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. Ready 1 s after the board's first event, once the PulseController's setup has gone out. The body camera (CameraSerialNumber, CameraExposureTime) runs on camera trigger 0 (DO0, at CameraFrequency), started 2 s in, publishing Camera-Body.Data for the live view only: nothing is recorded. Trigger 1 stays off, so DO1 stays a valve line.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
@@ -145,7 +145,7 @@
             </Expression>
             <Expression xsi:type="rx:SelectMany">
               <Name>ManualBalance</Name>
-              <Description>A balance read by eye, OpenRigs.Devices ManualBalance. From Go it follows the procedure's bursts by the pulses fired and, once each has landed, asks for a weight in the weigh metric; the next weight typed with the Weight command is forwarded to BalanceReading as that burst's reading. Ready once the board has sent an event.</Description>
+              <Description>A balance read by eye, OpenRigs.Devices ManualBalance. From Go it follows the procedure's bursts by the pulses fired and, once each has landed, asks for a weight in the weigh metric; the next weight typed with the Weight command is forwarded to BalanceReading as that burst's reading. Ready 1 s after the board's first event: the PulseController sends its setup (pulse mode on the OutputPulseEnable lines) 0.5 s after it, and a Go before that would fire the first pulse with the line not yet in pulse mode.</Description>
               <Workflow>
                 <Nodes>
                   <Expression xsi:type="WorkflowInput">
@@ -204,6 +204,11 @@
                     </Combinator>
                   </Expression>
                   <Expression xsi:type="WorkflowOutput" />
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="rx:Delay">
+                      <rx:DueTime>PT1S</rx:DueTime>
+                    </Combinator>
+                  </Expression>
                 </Nodes>
                 <Edges>
                   <Edge From="1" To="2" Label="Source1" />
@@ -215,7 +220,8 @@
                   <Edge From="8" To="9" Label="Source1" />
                   <Edge From="10" To="11" Label="Source1" />
                   <Edge From="12" To="13" Label="Source1" />
-                  <Edge From="13" To="14" Label="Source1" />
+                  <Edge From="13" To="16" Label="Source1" />
+                  <Edge From="16" To="14" Label="Source1" />
                   <Edge From="11" To="15" Label="Source1" />
                 </Edges>
               </Workflow>
