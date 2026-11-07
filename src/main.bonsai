@@ -334,10 +334,38 @@
               <Format>{0}\calibration\{1}-weights.csv</Format>
               <Selector>Item1,Item2.Item2</Selector>
             </Expression>
-            <Expression xsi:type="PropertyMapping">
-              <PropertyMappings>
-                <Property Name="FileName" />
-              </PropertyMappings>
+            <Expression xsi:type="rx:SelectMany">
+              <Name>WriteWeights</Name>
+              <Description>The weights file, opened only once its path is known: a CsvWriter creates its file when the workflow starts, from whatever FileName it has then, and RigConfigDirectory (an AsyncSubject) arrives a moment later, so a writer mapped from it directly wrote into the workflow's own folder, the lab clone, every run. Started by the path, it writes the rows CalibrationWeights carries.</Description>
+              <Workflow>
+                <Nodes>
+                  <Expression xsi:type="WorkflowInput">
+                    <Name>Source1</Name>
+                  </Expression>
+                  <Expression xsi:type="PropertyMapping">
+                    <PropertyMappings>
+                      <Property Name="FileName" />
+                    </PropertyMappings>
+                  </Expression>
+                  <Expression xsi:type="SubscribeSubject">
+                    <Name>CalibrationWeights</Name>
+                  </Expression>
+                  <Expression xsi:type="io:CsvWriter">
+                    <io:FileName>valve-weights.csv</io:FileName>
+                    <io:Append>false</io:Append>
+                    <io:Overwrite>true</io:Overwrite>
+                    <io:Suffix>None</io:Suffix>
+                    <io:IncludeHeader>true</io:IncludeHeader>
+                  </Expression>
+                  <Expression xsi:type="WorkflowOutput" />
+                </Nodes>
+                <Edges>
+                  <Edge From="0" To="1" Label="Source1" />
+                  <Edge From="1" To="3" Label="Source2" />
+                  <Edge From="2" To="3" Label="Source1" />
+                  <Edge From="3" To="4" Label="Source1" />
+                </Edges>
+              </Workflow>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
               <Name>ExperimentGo</Name>
@@ -552,12 +580,8 @@
             <Expression xsi:type="scr:ExpressionTransform">
               <scr:Expression>new(Item2.Size * 1.0 as size, Item2.Repeats as repeats, Item1.Item2 as before, Item1.Item1 as after)</scr:Expression>
             </Expression>
-            <Expression xsi:type="io:CsvWriter">
-              <io:FileName>valve-weights.csv</io:FileName>
-              <io:Append>false</io:Append>
-              <io:Overwrite>true</io:Overwrite>
-              <io:Suffix>None</io:Suffix>
-              <io:IncludeHeader>true</io:IncludeHeader>
+            <Expression xsi:type="rx:PublishSubject">
+              <Name>CalibrationWeights</Name>
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="rx:Count" />
@@ -596,8 +620,7 @@
             <Edge From="6" To="17" Label="Source2" />
             <Edge From="17" To="18" Label="Source1" />
             <Edge From="18" To="19" Label="Source1" />
-            <Edge From="12" To="19" Label="Source2" />
-            <Edge From="19" To="20" Label="Source1" />
+            <Edge From="12" To="20" Label="Source1" />
             <Edge From="20" To="21" Label="Source1" />
             <Edge From="21" To="22" Label="Source1" />
             <Edge From="22" To="23" Label="Source1" />
