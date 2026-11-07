@@ -9,16 +9,19 @@
                  xmlns:lv="clr-namespace:OpenRigs.LiveView;assembly=OpenRigs.LiveView"
                  xmlns:cv="clr-namespace:Bonsai.Vision;assembly=Bonsai.Vision"
                  xmlns:scr="clr-namespace:Bonsai.Scripting.Expressions;assembly=Bonsai.Scripting.Expressions"
+                 xmlns:vc="clr-namespace:CoenQcCalibrateValve;assembly=Extensions"
                  xmlns="https://bonsai-rx.org/2018/workflow">
-  <Description>Calibrates one reward valve on the behavior board: fires known pulse widths on one line, weighs what each delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. It measures only: rig-control builds the curve from the weights once the run completes and writes it to calibration\&lt;FileName&gt;.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the line and the board as its rig.yml gives them (PortName, OutputPulseEnable, Channel, FileName). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. The procedure (pulse widths, repeats) is config\valve-calibration.yml. Ready once the board answers; Go runs the procedure; Finished once every burst is weighed.</Description>
+  <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines and the board as its rig.yml gives them (PortName, OutputPulseEnable, Channel or Channels, FileName). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. The procedure (pulse widths, repeats) is config\valve-calibration.yml. Ready once the board answers; Go runs the procedure; Finished once every burst is weighed.</Description>
   <Workflow>
     <Nodes>
       <Expression xsi:type="ExternalizedMapping">
         <Property Name="ConfigRoot" DisplayName="ConfigRoot" Description="The root under which each machine has its own configuration directory, &lt;ConfigRoot&gt;\&lt;MACHINE-NAME&gt;\rig.yml; the weights are written into calibration\ there." />
+        <Property Name="Channel" DisplayName="Channel" Description="The behavior board line to calibrate, 1 to 3 (DO1 to DO3), when Channels is empty: one rig.yml lists in outputPulseEnable. rig-control gives it at launch." />
+        <Property Name="Channels" DisplayName="Channels" Description="The lines to calibrate together, interleaved, such as 1, 2: each burst fired on each in turn, each weighed before the next, so a run has a burst per line per sample. Empty: only Channel. rig-control gives it at launch for Calibrate All." />
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Settings</Name>
-        <Description>RigConfigDirectory is &lt;ConfigRoot&gt;\&lt;MACHINE-NAME&gt;, where the calibration writes its weights. ValveCalibrationSettings is config\valve-calibration.yml. Fails at startup if the machine has no configuration directory.</Description>
+        <Description>RigConfigDirectory is &lt;ConfigRoot&gt;\&lt;MACHINE-NAME&gt;, where the calibration writes its weights. ValveCalibrationSettings is config\valve-calibration.yml expanded over the valves (InterleaveValves, src\Extensions): each sample once per valve in Channels (else the one Channel), in turn, and the priming pulses once per valve, so ManualBalance, RunCalibration and the weights file all follow the bursts as they fire. Fails at startup if the machine has no configuration directory.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
@@ -45,6 +48,16 @@
                 <rx:Count>1</rx:Count>
               </Combinator>
             </Expression>
+            <Expression xsi:type="ExternalizedMapping">
+              <Property Name="Channel" DisplayName="Channel" />
+              <Property Name="Channels" DisplayName="Channels" />
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="vc:InterleaveValves">
+                <vc:Channel>1</vc:Channel>
+                <vc:Channels />
+              </Combinator>
+            </Expression>
             <Expression xsi:type="rx:AsyncSubject">
               <Name>ValveCalibrationSettings</Name>
             </Expression>
@@ -54,7 +67,9 @@
             <Edge From="1" To="2" Label="Source1" />
             <Edge From="3" To="4" Label="Source1" />
             <Edge From="4" To="5" Label="Source1" />
-            <Edge From="5" To="6" Label="Source1" />
+            <Edge From="5" To="7" Label="Source1" />
+            <Edge From="6" To="7" Label="Source2" />
+            <Edge From="7" To="8" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
@@ -278,22 +293,13 @@
         </Workflow>
       </Expression>
       <Expression xsi:type="ExternalizedMapping">
-        <Property Name="Channel" DisplayName="Channel" Description="The behavior board line to calibrate, 1 to 3 (DO1 to DO3): one rig.yml lists in outputPulseEnable. rig-control gives it at launch, from the line chosen on the Calibrations page." />
-        <Property Name="FileName" DisplayName="FileName" Description="The calibration's file name without extension, such as valve-DO1: the weights go to calibration\&lt;FileName&gt;-weights.csv, and rig-control writes the curve to calibration\&lt;FileName&gt;.json from them. rig-control gives it at launch." />
+        <Property Name="FileName" DisplayName="FileName" Description="The run's file name without extension, such as valve-DO1, or valve-all for every valve together: the weights go to calibration\&lt;FileName&gt;-weights.csv, and rig-control writes each valve's curve from them to its own calibration\*.json. rig-control gives it at launch." />
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Calibration</Name>
-        <Description>Reports the line and file as the target metric. At Go, RunCalibration on Channel with ValveCalibrationSettings (the bursts of OpenRigs.Core's DispenseCalibration, without its fit): it primes the line and weighs a baseline, then fires each sample's pulses through TriggerCalibratedPulse and weighs on BalanceReading. Each burst is written as it is weighed to calibration\&lt;FileName&gt;-weights.csv in RigConfigDirectory (columns size, repeats, before, after: its pulse width in ms, its pulses, and the grams before and after it; replaced every run). No fit here: once the run completes, rig-control builds the curve from the weights and writes calibration\&lt;FileName&gt;.json, with history, refusing one that is not monotone. Reports how many bursts were weighed as the points metric, then Finished.</Description>
+        <Description>Reports the valves and the weights file as the target metric. At Go, RunCalibration with ValveCalibrationSettings (the bursts of OpenRigs.Core's DispenseCalibration, without its fit, expanded over the valves): it primes each valve and weighs a baseline, then fires each burst on its valve through TriggerCalibratedPulse (ValvePulseBurst) and weighs on BalanceReading. Each burst is written as it is weighed to calibration\&lt;FileName&gt;-weights.csv in RigConfigDirectory (columns size, repeats, before, after, channel: its pulse width in ms, its pulses, the grams before and after it, and its line, 1 to 3; replaced every run). No fit here: once the run completes, rig-control splits the rows by channel, builds each valve's curve and writes it to that valve's calibration\*.json, with history, refusing one that is not monotone. Reports how many bursts were weighed as the points metric, then Finished.</Description>
         <Workflow>
           <Nodes>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Value" DisplayName="Channel" />
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="IntProperty">
-                <Value>1</Value>
-              </Combinator>
-            </Expression>
             <Expression xsi:type="ExternalizedMapping">
               <Property Name="Value" DisplayName="FileName" />
             </Expression>
@@ -301,6 +307,12 @@
               <Combinator xsi:type="StringProperty">
                 <Value>valve-DO1</Value>
               </Combinator>
+            </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>ValveCalibrationSettings</Name>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="vc:DescribeValves" />
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="rx:Zip" />
@@ -310,13 +322,8 @@
                 <rx:Count>1</rx:Count>
               </Combinator>
             </Expression>
-            <Expression xsi:type="PropertyMapping">
-              <PropertyMappings>
-                <Property Name="Channel" Selector="Item1" />
-              </PropertyMappings>
-            </Expression>
             <Expression xsi:type="Format">
-              <Format>DO{0} into calibration/{1}.json</Format>
+              <Format>{0} into calibration/{1}-weights.csv</Format>
               <Selector>Item1,Item2</Selector>
             </Expression>
             <Expression xsi:type="Combinator">
@@ -381,7 +388,7 @@
             </Expression>
             <Expression xsi:type="rx:SelectMany">
               <Name>RunCalibration</Name>
-              <Description>OpenRigs.Core DispenseCalibration's bursts (lib-open-rigs src\OpenRigs.Core\DispenseCalibration.bonsai, copied 7 Nov 2026), without its fit and file writing: primes the line and weighs a baseline, then each sample's burst and its weighing, in turn. The settings sit in a scoped subject so every step reads the same values. Output: each burst once weighed, as ((grams after, grams before), its sample).</Description>
+              <Description>OpenRigs.Core DispenseCalibration's bursts (lib-open-rigs src\OpenRigs.Core\DispenseCalibration.bonsai, copied 7 Nov 2026), without its fit and file writing: primes each valve and weighs a baseline, then each sample's burst on its valve (ValvePulseBurst, src\Extensions) and its weighing, in turn. The settings sit in a scoped subject so every step reads the same values. Output: each burst once weighed, as ((grams after, grams before), its sample).</Description>
               <Workflow>
                 <Nodes>
                   <Expression xsi:type="WorkflowInput">
@@ -389,9 +396,6 @@
                   </Expression>
                   <Expression xsi:type="rx:AsyncSubject">
                     <Name>DispenseSettings</Name>
-                  </Expression>
-                  <Expression xsi:type="ExternalizedMapping">
-                    <Property Name="Channel" />
                   </Expression>
                   <Expression xsi:type="SubscribeSubject">
                     <Name>DispenseSettings</Name>
@@ -416,12 +420,9 @@
                         <Expression xsi:type="MemberSelector">
                           <Selector>Procedure</Selector>
                         </Expression>
-                        <Expression xsi:type="ExternalizedMapping">
-                          <Property Name="Channel" />
-                        </Expression>
                         <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="orc:PulseBurst">
-                            <orc:Channel>1</orc:Channel>
+                          <Combinator xsi:type="vc:ValvePulseBurst">
+                            <vc:Channel>1</vc:Channel>
                           </Combinator>
                         </Expression>
                         <Expression xsi:type="MulticastSubject">
@@ -444,13 +445,12 @@
                       </Nodes>
                       <Edges>
                         <Edge From="0" To="1" Label="Source1" />
-                        <Edge From="1" To="3" Label="Source1" />
-                        <Edge From="2" To="3" Label="Source2" />
-                        <Edge From="3" To="4" Label="Source1" />
-                        <Edge From="3" To="7" Label="Source1" />
-                        <Edge From="5" To="7" Label="Source2" />
-                        <Edge From="6" To="7" Label="Source3" />
-                        <Edge From="7" To="8" Label="Source1" />
+                        <Edge From="1" To="2" Label="Source1" />
+                        <Edge From="2" To="3" Label="Source1" />
+                        <Edge From="2" To="6" Label="Source1" />
+                        <Edge From="4" To="6" Label="Source2" />
+                        <Edge From="5" To="6" Label="Source3" />
+                        <Edge From="6" To="7" Label="Source1" />
                       </Edges>
                     </Workflow>
                   </Expression>
@@ -480,12 +480,9 @@
                         <Expression xsi:type="WorkflowInput">
                           <Name>Source1</Name>
                         </Expression>
-                        <Expression xsi:type="ExternalizedMapping">
-                          <Property Name="Channel" />
-                        </Expression>
                         <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="orc:PulseBurst">
-                            <orc:Channel>1</orc:Channel>
+                          <Combinator xsi:type="vc:ValvePulseBurst">
+                            <vc:Channel>1</vc:Channel>
                           </Combinator>
                         </Expression>
                         <Expression xsi:type="MulticastSubject">
@@ -507,13 +504,12 @@
                         <Expression xsi:type="WorkflowOutput" />
                       </Nodes>
                       <Edges>
-                        <Edge From="0" To="2" Label="Source1" />
-                        <Edge From="1" To="2" Label="Source2" />
-                        <Edge From="2" To="3" Label="Source1" />
-                        <Edge From="2" To="6" Label="Source1" />
-                        <Edge From="4" To="6" Label="Source2" />
-                        <Edge From="5" To="6" Label="Source3" />
-                        <Edge From="6" To="7" Label="Source1" />
+                        <Edge From="0" To="1" Label="Source1" />
+                        <Edge From="1" To="2" Label="Source1" />
+                        <Edge From="1" To="5" Label="Source1" />
+                        <Edge From="3" To="5" Label="Source2" />
+                        <Edge From="4" To="5" Label="Source3" />
+                        <Edge From="5" To="6" Label="Source1" />
                       </Edges>
                     </Workflow>
                   </Expression>
@@ -551,34 +547,34 @@
                   </Expression>
                 </Nodes>
                 <Edges>
-                  <Edge From="0" To="22" Label="Source1" />
-                  <Edge From="22" To="1" Label="Source1" />
-                  <Edge From="2" To="6" Label="Source2" />
-                  <Edge From="2" To="12" Label="Source2" />
-                  <Edge From="3" To="6" Label="Source1" />
-                  <Edge From="4" To="5" Label="Source1" />
-                  <Edge From="5" To="6" Label="Source3" />
-                  <Edge From="6" To="13" Label="Source1" />
+                  <Edge From="0" To="21" Label="Source1" />
+                  <Edge From="21" To="1" Label="Source1" />
+                  <Edge From="2" To="5" Label="Source1" />
+                  <Edge From="3" To="4" Label="Source1" />
+                  <Edge From="4" To="5" Label="Source2" />
+                  <Edge From="5" To="12" Label="Source1" />
+                  <Edge From="6" To="7" Label="Source1" />
                   <Edge From="7" To="8" Label="Source1" />
-                  <Edge From="8" To="9" Label="Source1" />
-                  <Edge From="9" To="12" Label="Source1" />
-                  <Edge From="10" To="11" Label="Source1" />
-                  <Edge From="11" To="12" Label="Source3" />
-                  <Edge From="12" To="13" Label="Source2" />
+                  <Edge From="8" To="11" Label="Source1" />
+                  <Edge From="9" To="10" Label="Source1" />
+                  <Edge From="10" To="11" Label="Source2" />
+                  <Edge From="11" To="12" Label="Source2" />
+                  <Edge From="12" To="13" Label="Source1" />
                   <Edge From="13" To="14" Label="Source1" />
+                  <Edge From="13" To="15" Label="Source2" />
                   <Edge From="14" To="15" Label="Source1" />
-                  <Edge From="14" To="16" Label="Source2" />
-                  <Edge From="15" To="16" Label="Source1" />
-                  <Edge From="16" To="20" Label="Source1" />
+                  <Edge From="15" To="19" Label="Source1" />
+                  <Edge From="16" To="17" Label="Source1" />
                   <Edge From="17" To="18" Label="Source1" />
-                  <Edge From="18" To="19" Label="Source1" />
-                  <Edge From="19" To="20" Label="Source2" />
-                  <Edge From="20" To="21" Label="Source1" />
+                  <Edge From="18" To="19" Label="Source2" />
+                  <Edge From="19" To="20" Label="Source1" />
                 </Edges>
               </Workflow>
             </Expression>
-            <Expression xsi:type="scr:ExpressionTransform">
-              <scr:Expression>new(Item2.Size * 1.0 as size, Item2.Repeats as repeats, Item1.Item2 as before, Item1.Item1 as after)</scr:Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="vc:ValveWeighingRow">
+                <vc:Channel>1</vc:Channel>
+              </Combinator>
             </Expression>
             <Expression xsi:type="rx:PublishSubject">
               <Name>CalibrationWeights</Name>
@@ -602,28 +598,26 @@
           </Nodes>
           <Edges>
             <Edge From="0" To="1" Label="Source1" />
-            <Edge From="1" To="4" Label="Source1" />
             <Edge From="2" To="3" Label="Source1" />
-            <Edge From="3" To="4" Label="Source2" />
+            <Edge From="3" To="4" Label="Source1" />
+            <Edge From="1" To="4" Label="Source2" />
             <Edge From="4" To="5" Label="Source1" />
             <Edge From="5" To="6" Label="Source1" />
-            <Edge From="5" To="7" Label="Source1" />
-            <Edge From="7" To="8" Label="Source1" />
+            <Edge From="6" To="7" Label="Source1" />
+            <Edge From="8" To="9" Label="Source1" />
+            <Edge From="5" To="9" Label="Source2" />
             <Edge From="9" To="10" Label="Source1" />
-            <Edge From="5" To="10" Label="Source2" />
             <Edge From="10" To="11" Label="Source1" />
-            <Edge From="11" To="12" Label="Source1" />
-            <Edge From="13" To="15" Label="Source1" />
-            <Edge From="14" To="15" Label="Source2" />
+            <Edge From="12" To="14" Label="Source1" />
+            <Edge From="13" To="14" Label="Source2" />
+            <Edge From="14" To="15" Label="Source1" />
             <Edge From="15" To="16" Label="Source1" />
             <Edge From="16" To="17" Label="Source1" />
-            <Edge From="6" To="17" Label="Source2" />
             <Edge From="17" To="18" Label="Source1" />
-            <Edge From="18" To="19" Label="Source1" />
-            <Edge From="12" To="20" Label="Source1" />
+            <Edge From="11" To="19" Label="Source1" />
+            <Edge From="19" To="20" Label="Source1" />
             <Edge From="20" To="21" Label="Source1" />
             <Edge From="21" To="22" Label="Source1" />
-            <Edge From="22" To="23" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>

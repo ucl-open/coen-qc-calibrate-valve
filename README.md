@@ -1,6 +1,6 @@
 # coen-qc-calibrate-valve
 
-Calibrates a reward valve on a Coen Lab rig. It fires known pulse widths on one behavior board line and weighs what each burst delivers. rig-control turns the weights into the curve (pulse width in ms against volume per pulse in µl) where the rig's experiment workflows read it. Its bursts and weighings are the open-rigs dispense calibration's (`OpenRigs.Core:DispenseCalibration.bonsai`, see open-rigs' `docs/articles/calibration.md`), copied here without its fit; it uses the lab's open-rigs packages and has no C# of its own.
+Calibrates the reward valves on a Coen Lab rig, one valve or all of them in one run. It fires known pulse widths on the behavior board's valve lines and weighs what each burst delivers. rig-control turns the weights into the curve (pulse width in ms against volume per pulse in µl) where the rig's experiment workflows read it. Its bursts and weighings are the open-rigs dispense calibration's (`OpenRigs.Core:DispenseCalibration.bonsai`, see open-rigs' `docs/articles/calibration.md`), copied here without its fit; it uses the lab's open-rigs packages. Its one piece of C#, `src\Extensions\ValveInterleave.cs`, orders the bursts over the valves (below); it measures nothing and fits nothing.
 
 ## Bonsai Measures, rig-control Computes
 
@@ -14,11 +14,18 @@ Run it from rig-control's Calibrations page, the only place it is offered: it is
   - `PortName`: `behaviorBoard: main: portName`.
   - `OutputPulseEnable`: its `pulseController: outputPulseEnable`, written with commas (`DO1, DO2`).
   - `Channel`: the line's number.
-  - `FileName`: the line's calibration name. That is its own `artefact:` when rig.yml already calibrates it, else `valve-DO<n>`.
+  - `Channels`, for **Calibrate All**: every valve line's number, `1, 2`. Empty for one valve.
+  - `FileName`: the line's calibration name. That is its own `artefact:` when rig.yml already calibrates it, else `valve-DO<n>`. For Calibrate All, `valve-all` (rig-control's calibrations.toml `all_file`).
   - `CameraSerialNumber`, `CameraExposureTime`: `camera: body:`'s, and `CameraFrequency`: `cameraTriggerController: trigger0Frequency`. The body camera runs on camera trigger 0 (DO0) and is streamed by `OpenRigs.LiveView` (5558) for the Calibrations page to show live; nothing is recorded. Trigger 1 stays off, so DO1 stays a valve line.
   
   The page refuses a line that `outputPulseEnable` does not list, and does not show one rig.yml gives another job (the domes' DO3, the Zapit TTL).
 - **`config\valve-calibration.yml`**: the procedure (pulse widths, repeats, priming, fit, and how long each weighing waits). Committed, the same for every rig. Seven widths, closer together at the short end (20, 25, 30, 40, 50, 70 and 100 ms), each measured 3 times in rounds of all seven in a shuffled order (fixed in the file), each burst weighed once: 21 weighings. Per burst 20 ms x 500, 25 ms x 400, 30 ms x 333, 40 ms x 250, 50 ms x 200, 70 ms x 143, 100 ms x 100 pulses, so every burst delivers about what 500 pulses at 20 ms do (volume taken as proportional to width). Pulses are 63 ms apart, 1.25 times the 50 ms av-dome leaves between a reward's pulses (rig.yml `interPulseInterval`).
+
+## Every Valve in One Run
+
+Pip, 7 Nov 2026: "an option to calibrate all valves (interleave left and right for each burst, obviously double number of calibrations) or each individual valve". With `Channels` set, `InterleaveValves` (`src\Extensions\ValveInterleave.cs`) expands the procedure once, at load: each sample once per valve, in turn (DO1's 40 ms burst, weighed, DO2's 40 ms burst, weighed, then the next width), and the priming pulses once per valve. Every spout delivers into the one container on the one balance, and each burst is weighed by difference before the next fires, so each valve's gain is its own. `ManualBalance`, `RunCalibration` and the weights file all follow the expanded procedure, so the prompts count every valve's bursts (`sample 3 of 42`) and the page knows burst n is valve (n - 1) mod the number of valves. `ValvePulseBurst` fires each burst on its sample's valve, and `ValveWeighingRow` writes its `channel`. One valve (`Channels` empty) gives the procedure as written.
+
+`scripts\test-interleave.ps1` checks the expansion against the compiled extension, after lib-open-rigs' `check-workflow-builds.ps1` has built it.
 
 ## The Balance, Read by Eye
 
@@ -30,16 +37,16 @@ The body camera can see the balance's display, so rig-control's Calibrations pag
 
 ## A Run
 
-1. On the Calibrations page, press the line's **Go** and give your Lab PIN.
-2. **Ready** once the board has answered. Put a container on the balance under the spout.
+1. On the Calibrations page, press **Calibrate All Valves** or one valve's **Calibrate** on the Valves bar, and give your Lab PIN.
+2. **Ready** once the board has answered. Put a container on the balance under the spout (under every spout, for all of them).
 3. Press **Start**. The procedure primes the line (5 pulses of 500 ms), asks for the baseline weight, fires each sample's pulses and asks for each weight.
 4. **Finished** once every burst is weighed (`points` says how many). rig-control then builds the curve and the page lists the volume per pulse at each width and shows it, or says why nothing was written.
 
 ## What It Writes
 
-The workflow writes `calibration\<FileName>-weights.csv` beside rig.yml, one row per burst as it is weighed, replaced each run: `size` (pulse width, ms), `repeats` (pulses), `before` and `after` (the balance in grams before and after the burst; the first row's `before` is the baseline after priming).
+The workflow writes `calibration\<FileName>-weights.csv` beside rig.yml, one row per burst as it is weighed, replaced each run: `size` (pulse width, ms), `repeats` (pulses), `before` and `after` (the balance in grams before and after the burst; the first row's `before` is the baseline after priming), and `channel` (the line it fired on, 1 to 3).
 
-Once the run completes, rig-control writes `calibration\<FileName>.json`, the open-rigs `CalibrationCurve` that experiments' `CalibratedPulse` reads: each sample's volume per pulse is its gain over its pulses and the density, in µl, as `DispenseCalibration` built it. A dated copy goes in `calibration\history\`, with the run's weights under the same date (kept whether or not they could be fitted). It refuses, writing no curve, a run that did not weigh every burst, bursts that are not the procedure's (the file changed since), a burst that delivered nothing, and a curve that is not monotone. A run that is stopped is not fitted.
+Once the run completes, rig-control writes `calibration\<FileName>.json` (for all of them, each valve's own artefact, from its rows alone; if any valve's curve fails a check, none is written), the open-rigs `CalibrationCurve` that experiments' `CalibratedPulse` reads: each sample's volume per pulse is its gain over its pulses and the density, in µl, as `DispenseCalibration` built it. A dated copy goes in `calibration\history\`, with the run's weights under the same date (kept whether or not they could be fitted). It refuses, writing no curve, a run that did not weigh every burst, bursts that are not the procedure's (the file changed since), a burst that delivered nothing, and a curve that is not monotone. A run that is stopped is not fitted.
 
 A line still set to `FixedPulse` keeps its fixed width until rig.yml points it at the artefact. The Calibrations page says so, and its Use Calibration button makes that change, once asked and with a Lab PIN, to that line alone (the rest of rig.yml, comments included, kept as it was, the old file in `_backups`):
 
