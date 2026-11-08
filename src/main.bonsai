@@ -178,7 +178,7 @@
             </Expression>
             <Expression xsi:type="rx:SelectMany">
               <Name>ManualBalance</Name>
-              <Description>A balance read by eye, OpenRigs.Devices ManualBalance. From Go it follows the procedure's bursts by the pulses fired and, once each has landed, asks for a weight in the weigh metric; the next weight typed with the Weight command is forwarded to BalanceReading as that burst's reading. Ready 1 s after the board's first event: the PulseController sends its setup (pulse mode on the OutputPulseEnable lines) 0.5 s after it, and a Go before that would fire the first pulse with the line not yet in pulse mode.</Description>
+              <Description>A balance read by eye, OpenRigs.Devices ManualBalance. From Go it follows the procedure's bursts by their pulses, on BurstPulses (never a drip's: drips fire on TriggerCalibratedPulse alone, so its count of bursts holds), and, once each has landed, asks for a weight in the weigh metric; the next weight typed with the Weight command is forwarded to BalanceReading as that burst's reading. Ready 1 s after the board's first event: the PulseController sends its setup (pulse mode on the OutputPulseEnable lines) 0.5 s after it, and a Go before that would fire the first pulse with the line not yet in pulse mode.</Description>
               <Workflow>
                 <Nodes>
                   <Expression xsi:type="WorkflowInput">
@@ -208,7 +208,7 @@
                     <Selector>Item2</Selector>
                   </Expression>
                   <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:ManualBalance.bonsai">
-                    <RequestSubjectName>TriggerCalibratedPulse</RequestSubjectName>
+                    <RequestSubjectName>BurstPulses</RequestSubjectName>
                     <EntriesSubjectName>WeightEntries</EntriesSubjectName>
                     <ReadingsSubjectName>ManualReading</ReadingsSubjectName>
                   </Expression>
@@ -297,6 +297,9 @@
               <ColorProcessing>Default</ColorProcessing>
               <CameraTriggerEventsSubjectName>Camera0TriggerEvents</CameraTriggerEventsSubjectName>
               <FrameEventsSubjectName>Camera-Body.Data</FrameEventsSubjectName>
+            </Expression>
+            <Expression xsi:type="rx:PublishSubject" TypeArguments="sys:Tuple(sys:Int32,sys:Int32)">
+              <rx:Name>BurstPulses</rx:Name>
             </Expression>
           </Nodes>
           <Edges>
@@ -429,7 +432,7 @@
                   </Expression>
                   <Expression xsi:type="rx:CreateObservable">
                     <Name>PrimeAndWeighBaseline</Name>
-                    <Description>Fires the priming burst to fill the line, then weighs the baseline once it has landed. While it is due, each Drip fires on the line it names (DripBurst), at the largest sample's width, so each spout's hanging drop falls first; those pulses count nowhere.</Description>
+                    <Description>Fires the priming burst to fill the line, then weighs the baseline once it has landed. While it is due, each Drip fires on the line it names (DripBurst), at the largest sample's width, so each spout's hanging drop falls first; those pulses count nowhere. The priming burst's pulses also go on BurstPulses, which ManualBalance counts; a drip's never do (8 Nov 2026: counted, they moved its count of bursts on, and a run ended after its second sample).</Description>
                     <Workflow>
                       <Nodes>
                         <Expression xsi:type="WorkflowInput">
@@ -471,6 +474,9 @@
                         <Expression xsi:type="MulticastSubject">
                           <Name>TriggerCalibratedPulse</Name>
                         </Expression>
+                        <Expression xsi:type="MulticastSubject">
+                          <Name>BurstPulses</Name>
+                        </Expression>
                       </Nodes>
                       <Edges>
                         <Edge From="0" To="1" Label="Source1" />
@@ -483,6 +489,7 @@
                         <Edge From="8" To="9" Label="Source1" />
                         <Edge From="1" To="9" Label="Source2" />
                         <Edge From="9" To="10" Label="Source1" />
+                        <Edge From="3" To="11" Label="Source1" />
                       </Edges>
                     </Workflow>
                   </Expression>
@@ -506,7 +513,7 @@
                   </Expression>
                   <Expression xsi:type="rx:CreateObservable">
                     <Name>FireAndWeighSample</Name>
-                    <Description>One sample: fires its burst of pulses, then weighs once the last has landed. While it is due, each Drip fires more pulses of its width on its valve (DripBurst), until rig-control sees the balance move; the drip pulses fired before the weighing go on SampleDrips, for its row's repeats. The samples run in turn, each starting after the previous weighing.</Description>
+                    <Description>One sample: fires its burst of pulses, then weighs once the last has landed. While it is due, each Drip fires more pulses of its width on its valve (DripBurst), until rig-control sees the balance move; the drip pulses fired before the weighing go on SampleDrips, for its row's repeats. The burst's own pulses also go on BurstPulses, which ManualBalance counts; a drip's never do. The samples run in turn, each starting after the previous weighing.</Description>
                     <Workflow>
                       <Nodes>
                         <Expression xsi:type="WorkflowInput">
@@ -554,6 +561,9 @@
                         <Expression xsi:type="MulticastSubject">
                           <Name>SampleDrips</Name>
                         </Expression>
+                        <Expression xsi:type="MulticastSubject">
+                          <Name>BurstPulses</Name>
+                        </Expression>
                       </Nodes>
                       <Edges>
                         <Edge From="0" To="1" Label="Source1" />
@@ -569,6 +579,7 @@
                         <Edge From="5" To="10" Label="Source2" />
                         <Edge From="10" To="11" Label="Source1" />
                         <Edge From="11" To="12" Label="Source1" />
+                        <Edge From="2" To="13" Label="Source1" />
                       </Edges>
                     </Workflow>
                   </Expression>
