@@ -51,5 +51,24 @@ $order = @($one.Samples | ForEach-Object { "$($_.Size)@$($_.Channel)" }) -join '
 Check "one valve: the procedure as written ($order)" ($order -eq '40@2 20@2')
 Check 'one valve: priming as written' ($one.PrimingPulses -eq 5)
 
+# Drips (Pip, 8 Nov 2026): a Drip command's pulses at the sample's width on its valve; for the
+# baseline, at the largest width on the line named.
+$rx = [System.Reactive.Linq.Observable]
+function Obs($type, $value) { ($rx.GetMethods() | Where-Object { $_.Name -eq 'Return' -and $_.GetParameters().Count -eq 1 })[0].MakeGenericMethod($type).Invoke($null, @($value)) }
+function Items($type, $source) { @(($rx.GetMethods() | Where-Object { $_.Name -eq 'ToEnumerable' })[0].MakeGenericMethod($type).Invoke($null, @($source))) }
+$drip = [CoenQcCalibrateValve.DripBurst]
+Check "Drip '5' is 5 pulses, no line" (($drip::Parse('5').Item1 -eq 5) -and ($drip::Parse('5').Item2 -eq 0))
+Check "Drip '1 DO2' is 1 pulse on line 2" (($drip::Parse('1 DO2').Item1 -eq 1) -and ($drip::Parse('1 DO2').Item2 -eq 2))
+foreach ($bad in '', '0', 'five', '1 DO4', '101') {
+    $threw = $false
+    try { $null = $drip::Parse($bad) } catch { $threw = $true }
+    Check "Drip '$bad' refused" $threw
+}
+$sample = $all.Samples[3]  # 20 ms on valve 2
+$pulses = Items ([Tuple[int, int]]) ((New-Object CoenQcCalibrateValve.DripBurst).Process((Obs ([string]) '3'), (Obs ([OpenRigs.Core.Calibration.DispenseSample]) $sample)))
+Check "a sample's drip: its width on its valve ($($pulses -join ' '))" ((@($pulses | ForEach-Object { "$($_.Item2)@$($_.Item1)" }) -join ' ') -eq '20@2 20@2 20@2')
+$pulses = Items ([Tuple[int, int]]) ((New-Object CoenQcCalibrateValve.DripBurst).Process((Obs ([string]) '1 DO2'), (Obs ([OpenRigs.Core.Calibration.DispenseProcedure]) $all)))
+Check "the baseline's drip: the largest width on the line named ($($pulses -join ' '))" ((@($pulses | ForEach-Object { "$($_.Item2)@$($_.Item1)" }) -join ' ') -eq '40@2')
+
 if ($failed) { "test-interleave: $failed failed."; exit 1 }
 'test-interleave: all passed.'

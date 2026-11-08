@@ -169,6 +169,59 @@ namespace CoenQcCalibrateValve
         }
     }
 
+    // Drips (Pip, 8 Nov 2026): a drop can hang on the spout after a burst and fall into the next
+    // weighing, so once a weight is due rig-control fires short bursts of the width tested, one Drip
+    // command at a time, until the balance's display moves, and only then reads it. A sample's drip
+    // pulses are its own: they are added to its row's repeats.
+    [Combinator]
+    [Description("Each Drip command fired as pulses: its text is the pulse count and, for the baseline, the line (such as '1 DO2'). With a sample (second input), at the sample's width on its valve; with the procedure, at its largest sample's width on the line named, else its first valve. One drip at a time, in the order sent.")]
+    [WorkflowElementCategory(ElementCategory.Combinator)]
+    public class DripBurst
+    {
+        int channel = 1;
+
+        [Description("The line a sample that names no valve drips on, 1 to 3.")]
+        public int Channel
+        {
+            get { return channel; }
+            set { channel = value; }
+        }
+
+        public IObservable<Tuple<int, int>> Process(IObservable<string> commands, IObservable<DispenseSample> sample)
+        {
+            return sample.Take(1).SelectMany(s => commands.Select(text =>
+            {
+                var valve = s as ValveSample;
+                return PulseBurst.Burst(valve != null ? valve.Channel : Channel, s.Size, Parse(text).Item1, s.InterPulseIntervalMs);
+            }).Concat());
+        }
+
+        public IObservable<Tuple<int, int>> Process(IObservable<string> commands, IObservable<DispenseProcedure> procedure)
+        {
+            return procedure.Take(1).SelectMany(p => commands.Select(text =>
+            {
+                var drip = Parse(text);
+                var valves = Valves.Of(p);
+                int line = drip.Item2 > 0 ? drip.Item2 : valves.Length > 0 ? valves[0] : Channel;
+                return PulseBurst.Burst(line, p.Samples.Max(x => x.Size), drip.Item1, p.Samples.Max(x => x.InterPulseIntervalMs));
+            }).Concat());
+        }
+
+        /// <summary>A Drip command's (pulses, line), the line 0 when not named.</summary>
+        public static Tuple<int, int> Parse(string text)
+        {
+            var parts = (text ?? "").Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+            int pulses;
+            if (parts.Length < 1 || parts.Length > 2 || !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out pulses)
+                || pulses < 1 || pulses > 100)
+            {
+                throw new InvalidOperationException(string.Format(
+                    "Drip '{0}' is not a drip: give its pulses, 1 to 100, and for the baseline the line, such as 1 DO2.", text));
+            }
+            return Tuple.Create(pulses, parts.Length == 2 ? Valves.Parse(parts[1], 1)[0] : 0);
+        }
+    }
+
     [Combinator]
     [Description("The valves of the expanded procedure as the run's target says them, such as DO1, DO2.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
@@ -191,7 +244,7 @@ namespace CoenQcCalibrateValve
     }
 
     [Combinator]
-    [Description("Each weighed burst as a row of the weights file: its pulse width in ms, its pulses, the grams before and after it, and the valve it fired on (1 to 3). Input: ((grams after, grams before), its sample), as RunCalibration gives it.")]
+    [Description("Each weighed burst as a row of the weights file: its pulse width in ms, its pulses (its drips included), the grams before and after it, and the valve it fired on (1 to 3). Input: (((grams after, grams before), its sample), its drip pulses), RunCalibration's output with SampleDrips.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
     public class ValveWeighingRow
     {
@@ -204,17 +257,18 @@ namespace CoenQcCalibrateValve
             set { channel = value; }
         }
 
-        public IObservable<ValveWeighing> Process(IObservable<Tuple<Tuple<double, double>, DispenseSample>> source)
+        public IObservable<ValveWeighing> Process(IObservable<Tuple<Tuple<Tuple<double, double>, DispenseSample>, int>> source)
         {
             return source.Select(input =>
             {
-                var valve = input.Item2 as ValveSample;
+                var weighed = input.Item1;
+                var valve = weighed.Item2 as ValveSample;
                 return new ValveWeighing
                 {
-                    size = input.Item2.Size,
-                    repeats = input.Item2.Repeats,
-                    before = input.Item1.Item2,
-                    after = input.Item1.Item1,
+                    size = weighed.Item2.Size,
+                    repeats = weighed.Item2.Repeats + input.Item2,
+                    before = weighed.Item1.Item2,
+                    after = weighed.Item1.Item1,
                     channel = valve != null ? valve.Channel : Channel
                 };
             });

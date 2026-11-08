@@ -11,7 +11,9 @@
 # every width alike; each burst is a point of the curve, so a line fitted to it (LinearFit) averages the repeats. Every burst delivers about what 500
 # pulses at 20 ms do, taking volume as proportional to width: 500 at 20 ms, 400 at 25, 333 at 30,
 # 250 at 40, 200 at 50, 143 at 70 and 100 at 100 (Pip, 6 Nov 2026). Pulses are 63 ms apart, 1.25
-# times the 50 ms av-dome leaves between a reward's pulses (rig.yml interPulseInterval).
+# times the 50 ms av-dome leaves between a reward's pulses (rig.yml interPulseInterval). Before each
+# weighing, rig-control fires drips of the same width until the balance moves (a drop can hang on
+# the spout); they are added to that burst's pulses in the weights file (Pip, 8 Nov 2026).
 procedure:
   samples:
     - { size: 40, repeats: 250, interPulseIntervalMs: 63 } # round 1

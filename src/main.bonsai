@@ -10,8 +10,9 @@
                  xmlns:cv="clr-namespace:Bonsai.Vision;assembly=Bonsai.Vision"
                  xmlns:scr="clr-namespace:Bonsai.Scripting.Expressions;assembly=Bonsai.Scripting.Expressions"
                  xmlns:vc="clr-namespace:CoenQcCalibrateValve;assembly=Extensions"
+                 xmlns:sys="clr-namespace:System;assembly=mscorlib"
                  xmlns="https://bonsai-rx.org/2018/workflow">
-  <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines and the board as its rig.yml gives them (PortName, OutputPulseEnable, Channel or Channels, FileName). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. The procedure (pulse widths, repeats) is config\valve-calibration.yml. Ready once the board answers; Go runs the procedure; Finished once every burst is weighed.</Description>
+  <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines and the board as its rig.yml gives them (PortName, OutputPulseEnable, Channel or Channels, FileName). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its repeats. The procedure (pulse widths, repeats) is config\valve-calibration.yml. Ready once the board answers; Go runs the procedure; Finished once every burst is weighed.</Description>
   <Workflow>
     <Nodes>
       <Expression xsi:type="ExternalizedMapping">
@@ -79,7 +80,7 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Initialization</Name>
-        <Description>The experiment controller (OpenRigs.Control, ExperimentControl) over TCP 5561, which the rig agent relays. Weight takes each weight read off the balance. Reports Recording at Go.</Description>
+        <Description>The experiment controller (OpenRigs.Control, ExperimentControl) over TCP 5561, which the rig agent relays. Weight takes each weight read off the balance. Drip fires a drip while a weight is due, published on DripCommands. Reports Recording at Go.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
@@ -97,6 +98,10 @@
                   <Description>The balance's reading, in grams, given when the weigh metric asks for it.</Description>
                 </Command>
                 <Command>
+                  <Name>Drip</Name>
+                  <Description>Fires a drip while a weight is due, so a drop hanging on the spout falls before the reading: the text is its pulses, at the width being weighed on its valve (for the baseline, also the line, such as 1 DO2). A sample's drip pulses are added to its repeats.</Description>
+                </Command>
+                <Command>
                   <Name>Snapshot</Name>
                   <Description>Saves the body camera's latest frame, full size, as calibration\images\&lt;text&gt;.jpg beside rig.yml: rig-control's Calibrations page reads the balance from it.</Description>
                 </Command>
@@ -110,10 +115,23 @@
                 <orcl:Phase>Recording</orcl:Phase>
               </Combinator>
             </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>ControlEvents</Name>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="orcl:OnCommand">
+                <orcl:Name>Drip</orcl:Name>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="rx:PublishSubject">
+              <Name>DripCommands</Name>
+            </Expression>
           </Nodes>
           <Edges>
             <Edge From="0" To="1" Label="Source1" />
             <Edge From="2" To="3" Label="Source1" />
+            <Edge From="4" To="5" Label="Source1" />
+            <Edge From="5" To="6" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
@@ -297,7 +315,7 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Calibration</Name>
-        <Description>Reports the valves and the weights file as the target metric. At Go, RunCalibration with ValveCalibrationSettings (the bursts of OpenRigs.Core's DispenseCalibration, without its fit, expanded over the valves): it primes each valve and weighs a baseline, then fires each burst on its valve through TriggerCalibratedPulse (ValvePulseBurst) and weighs on BalanceReading. Each burst is written as it is weighed to calibration\&lt;FileName&gt;-weights.csv in RigConfigDirectory (columns size, repeats, before, after, channel: its pulse width in ms, its pulses, the grams before and after it, and its line, 1 to 3; replaced every run). No fit here: once the run completes, rig-control splits the rows by channel, builds each valve's curve and writes it to that valve's calibration\*.json, with history, refusing one that is not monotone. Reports how many bursts were weighed as the points metric, then Finished.</Description>
+        <Description>Reports the valves and the weights file as the target metric. At Go, RunCalibration with ValveCalibrationSettings (the bursts of OpenRigs.Core's DispenseCalibration, without its fit, expanded over the valves): it primes each valve and weighs a baseline, then fires each burst on its valve through TriggerCalibratedPulse (ValvePulseBurst) and weighs on BalanceReading. Each burst is written as it is weighed to calibration\&lt;FileName&gt;-weights.csv in RigConfigDirectory (columns size, repeats, before, after, channel: its pulse width in ms, its pulses with the drips fired after it (SampleDrips), the grams before and after it, and its line, 1 to 3; replaced every run). No fit here: once the run completes, rig-control splits the rows by channel, builds each valve's curve and writes it to that valve's calibration\*.json, with history, refusing one that is not monotone. Reports how many bursts were weighed as the points metric, then Finished.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
@@ -411,7 +429,7 @@
                   </Expression>
                   <Expression xsi:type="rx:CreateObservable">
                     <Name>PrimeAndWeighBaseline</Name>
-                    <Description>Fires the priming burst to fill the line, then weighs the baseline once it has landed.</Description>
+                    <Description>Fires the priming burst to fill the line, then weighs the baseline once it has landed. While it is due, each Drip fires on the line it names (DripBurst), at the largest sample's width, so each spout's hanging drop falls first; those pulses count nowhere.</Description>
                     <Workflow>
                       <Nodes>
                         <Expression xsi:type="WorkflowInput">
@@ -442,6 +460,17 @@
                           </Combinator>
                         </Expression>
                         <Expression xsi:type="WorkflowOutput" />
+                        <Expression xsi:type="SubscribeSubject">
+                          <Name>DripCommands</Name>
+                        </Expression>
+                        <Expression xsi:type="Combinator">
+                          <Combinator xsi:type="vc:DripBurst">
+                            <vc:Channel>1</vc:Channel>
+                          </Combinator>
+                        </Expression>
+                        <Expression xsi:type="MulticastSubject">
+                          <Name>TriggerCalibratedPulse</Name>
+                        </Expression>
                       </Nodes>
                       <Edges>
                         <Edge From="0" To="1" Label="Source1" />
@@ -451,6 +480,9 @@
                         <Edge From="4" To="6" Label="Source2" />
                         <Edge From="5" To="6" Label="Source3" />
                         <Edge From="6" To="7" Label="Source1" />
+                        <Edge From="8" To="9" Label="Source1" />
+                        <Edge From="1" To="9" Label="Source2" />
+                        <Edge From="9" To="10" Label="Source1" />
                       </Edges>
                     </Workflow>
                   </Expression>
@@ -474,7 +506,7 @@
                   </Expression>
                   <Expression xsi:type="rx:CreateObservable">
                     <Name>FireAndWeighSample</Name>
-                    <Description>One sample: fires its burst of pulses, then weighs once the last has landed. The samples run in turn, each starting after the previous weighing.</Description>
+                    <Description>One sample: fires its burst of pulses, then weighs once the last has landed. While it is due, each Drip fires more pulses of its width on its valve (DripBurst), until rig-control sees the balance move; the drip pulses fired before the weighing go on SampleDrips, for its row's repeats. The samples run in turn, each starting after the previous weighing.</Description>
                     <Workflow>
                       <Nodes>
                         <Expression xsi:type="WorkflowInput">
@@ -502,6 +534,26 @@
                           </Combinator>
                         </Expression>
                         <Expression xsi:type="WorkflowOutput" />
+                        <Expression xsi:type="SubscribeSubject">
+                          <Name>DripCommands</Name>
+                        </Expression>
+                        <Expression xsi:type="Combinator">
+                          <Combinator xsi:type="vc:DripBurst">
+                            <vc:Channel>1</vc:Channel>
+                          </Combinator>
+                        </Expression>
+                        <Expression xsi:type="MulticastSubject">
+                          <Name>TriggerCalibratedPulse</Name>
+                        </Expression>
+                        <Expression xsi:type="Combinator">
+                          <Combinator xsi:type="rx:TakeUntil" />
+                        </Expression>
+                        <Expression xsi:type="Combinator">
+                          <Combinator xsi:type="rx:Count" />
+                        </Expression>
+                        <Expression xsi:type="MulticastSubject">
+                          <Name>SampleDrips</Name>
+                        </Expression>
                       </Nodes>
                       <Edges>
                         <Edge From="0" To="1" Label="Source1" />
@@ -510,6 +562,13 @@
                         <Edge From="3" To="5" Label="Source2" />
                         <Edge From="4" To="5" Label="Source3" />
                         <Edge From="5" To="6" Label="Source1" />
+                        <Edge From="7" To="8" Label="Source1" />
+                        <Edge From="0" To="8" Label="Source2" />
+                        <Edge From="8" To="9" Label="Source1" />
+                        <Edge From="9" To="10" Label="Source1" />
+                        <Edge From="5" To="10" Label="Source2" />
+                        <Edge From="10" To="11" Label="Source1" />
+                        <Edge From="11" To="12" Label="Source1" />
                       </Edges>
                     </Workflow>
                   </Expression>
@@ -595,6 +654,15 @@
                 <orcl:Phase>Finished</orcl:Phase>
               </Combinator>
             </Expression>
+            <Expression xsi:type="rx:PublishSubject" TypeArguments="sys:Int32">
+              <rx:Name>SampleDrips</rx:Name>
+            </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>SampleDrips</Name>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:Zip" />
+            </Expression>
           </Nodes>
           <Edges>
             <Edge From="0" To="1" Label="Source1" />
@@ -612,7 +680,9 @@
             <Edge From="13" To="14" Label="Source2" />
             <Edge From="14" To="15" Label="Source1" />
             <Edge From="15" To="16" Label="Source1" />
-            <Edge From="16" To="17" Label="Source1" />
+            <Edge From="16" To="25" Label="Source1" />
+            <Edge From="24" To="25" Label="Source2" />
+            <Edge From="25" To="17" Label="Source1" />
             <Edge From="17" To="18" Label="Source1" />
             <Edge From="11" To="19" Label="Source1" />
             <Edge From="19" To="20" Label="Source1" />
