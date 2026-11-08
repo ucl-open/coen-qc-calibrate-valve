@@ -298,7 +298,7 @@
               <CameraTriggerEventsSubjectName>Camera0TriggerEvents</CameraTriggerEventsSubjectName>
               <FrameEventsSubjectName>Camera-Body.Data</FrameEventsSubjectName>
             </Expression>
-            <Expression xsi:type="rx:PublishSubject" TypeArguments="sys:Tuple(sys:Int32,sys:Int32)">
+            <Expression xsi:type="rx:BehaviorSubject" TypeArguments="sys:Tuple(sys:Int32,sys:Int32)">
               <rx:Name>BurstPulses</rx:Name>
             </Expression>
           </Nodes>
@@ -432,7 +432,7 @@
                   </Expression>
                   <Expression xsi:type="rx:CreateObservable">
                     <Name>PrimeAndWeighBaseline</Name>
-                    <Description>Fires the priming burst to fill the line, then weighs the baseline once it has landed. While it is due, each Drip fires on the line it names (DripBurst), at the largest sample's width, so each spout's hanging drop falls first; those pulses count nowhere. The priming burst's pulses also go on BurstPulses, which ManualBalance counts; a drip's never do (8 Nov 2026: counted, they moved its count of bursts on, and a run ended after its second sample).</Description>
+                    <Description>Fires the priming burst to fill the line, then weighs the baseline once it has landed. While it is due, each Drip fires on the line it names (DripBurst), at the largest sample's width, so each spout's hanging drop falls first; those pulses count nowhere. The priming burst's pulses also go on BurstPulses, which ManualBalance counts; a drip's never do. BurstPulses is a BehaviorSubject: a MulticastSubject passes on its source's completion, which ends a PublishSubject for good, so the priming burst's end would leave ManualBalance deaf to every sample (8 Nov 2026: a run stopped at Firing sample 1).</Description>
                     <Workflow>
                       <Nodes>
                         <Expression xsi:type="WorkflowInput">
@@ -513,7 +513,7 @@
                   </Expression>
                   <Expression xsi:type="rx:CreateObservable">
                     <Name>FireAndWeighSample</Name>
-                    <Description>One sample: fires its burst of pulses, then weighs once the last has landed. While it is due, each Drip fires more pulses of its width on its valve (DripBurst), until rig-control sees the balance move; the drip pulses fired before the weighing go on SampleDrips, for its row's repeats. The burst's own pulses also go on BurstPulses, which ManualBalance counts; a drip's never do. The samples run in turn, each starting after the previous weighing.</Description>
+                    <Description>One sample: fires its burst of pulses, then weighs once the last has landed. While it is due, each Drip fires more pulses of its width on its valve (DripBurst), until rig-control sees the balance move; the drip pulses fired before the weighing go on SampleDrips, for its row's repeats. SampleDrips is a BehaviorSubject, as each sample's Count completes and would end a PublishSubject after the first sample, and the Zip of rows with it (8 Nov 2026: a run Finished after sample 2 with one row). The burst's own pulses also go on BurstPulses, which ManualBalance counts; a drip's never do. The samples run in turn, each starting after the previous weighing.</Description>
                     <Workflow>
                       <Nodes>
                         <Expression xsi:type="WorkflowInput">
@@ -665,7 +665,7 @@
                 <orcl:Phase>Finished</orcl:Phase>
               </Combinator>
             </Expression>
-            <Expression xsi:type="rx:PublishSubject" TypeArguments="sys:Int32">
+            <Expression xsi:type="rx:BehaviorSubject" TypeArguments="sys:Int32">
               <rx:Name>SampleDrips</rx:Name>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
