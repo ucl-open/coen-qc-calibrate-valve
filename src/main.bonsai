@@ -91,7 +91,21 @@
               <SubjectId />
               <SessionId />
               <ControlEndpoint>@tcp://127.0.0.1:5561</ControlEndpoint>
-              <Parameters />
+              <Parameters>
+                <Parameter>
+                  <Name>ExposureTime</Name>
+                  <Value />
+                  <Description>The body camera's exposure in microseconds, taken by the camera at once, so the balance's display can be made readable while calibrating. Starts at CameraExposureTime (rig.yml's). A calibration's only: rig.yml is not changed.</Description>
+                  <Minimum>100</Minimum>
+                </Parameter>
+                <Parameter>
+                  <Name>Gain</Name>
+                  <Value />
+                  <Description>The body camera's gain in dB, taken by the camera at once. Starts at 0.</Description>
+                  <Minimum>0</Minimum>
+                  <Maximum>10</Maximum>
+                </Parameter>
+              </Parameters>
               <Commands>
                 <Command>
                   <Name>Weight</Name>
@@ -144,7 +158,7 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Hardware</Name>
-        <Description>The behavior board on PortName, with the PulseController pulsing the OutputPulseEnable lines: its TriggerCalibratedPulse fires one pulse of a given width on a line, as in a session. The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. Ready 1 s after the board's first event, once the PulseController's setup has gone out. The body camera (CameraSerialNumber, CameraExposureTime) runs on camera trigger 0 (DO0, at CameraFrequency), started 2 s in, publishing Camera-Body.Data for the live view only: nothing is recorded. Trigger 1 stays off, so DO1 stays a valve line.</Description>
+        <Description>The behavior board on PortName, with the PulseController pulsing the OutputPulseEnable lines: its TriggerCalibratedPulse fires one pulse of a given width on a line, as in a session. The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. Ready 1 s after the board's first event, once the PulseController's setup has gone out. The body camera (CameraSerialNumber, CameraExposureTime) runs on camera trigger 0 (DO0, at CameraFrequency), started 2 s in, publishing Camera-Body.Data for the live view only: nothing is recorded. Its exposure and gain are the controller's ExposureTime and Gain parameters (Pip, 9 Nov 2026), as coen-behaviour-box's: each starts at CameraExposureTime and 0 dB and takes each value the controller sets (OnParameterSet) straight to the open camera, so rig-control's Calibrations page can make the balance's display readable; ParameterDefault shows the starting values 1 s in, once the controller is up. Trigger 1 stays off, so DO1 stays a valve line.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
@@ -287,7 +301,6 @@
             </Expression>
             <Expression xsi:type="ExternalizedMapping">
               <Property Name="SerialNumber" DisplayName="CameraSerialNumber" />
-              <Property Name="ExposureTime" DisplayName="CameraExposureTime" />
             </Expression>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:TriggeredSpinnaker.bonsai">
               <ExposureTime>19000</ExposureTime>
@@ -301,6 +314,77 @@
             <Expression xsi:type="rx:BehaviorSubject" TypeArguments="sys:Tuple(sys:Int32,sys:Int32)">
               <rx:Name>BurstPulses</rx:Name>
             </Expression>
+            <Expression xsi:type="ExternalizedMapping">
+              <Property Name="Value" DisplayName="CameraExposureTime" />
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="DoubleProperty">
+                <Value>19000</Value>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>ControlEvents</Name>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="orcl:OnParameterSet">
+                <orcl:Name>ExposureTime</orcl:Name>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="scr:ExpressionTransform">
+              <scr:Expression>Convert.ToDouble(it)</scr:Expression>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:Merge" />
+            </Expression>
+            <Expression xsi:type="PropertyMapping">
+              <PropertyMappings>
+                <Property Name="ExposureTime" />
+              </PropertyMappings>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="DoubleProperty">
+                <Value>0</Value>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>ControlEvents</Name>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="orcl:OnParameterSet">
+                <orcl:Name>Gain</orcl:Name>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="scr:ExpressionTransform">
+              <scr:Expression>Convert.ToDouble(it)</scr:Expression>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:Merge" />
+            </Expression>
+            <Expression xsi:type="PropertyMapping">
+              <PropertyMappings>
+                <Property Name="Gain" />
+              </PropertyMappings>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:Delay">
+                <rx:DueTime>PT1S</rx:DueTime>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="orcl:ParameterDefault">
+                <orcl:Name>ExposureTime</orcl:Name>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:Delay">
+                <rx:DueTime>PT1S</rx:DueTime>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="orcl:ParameterDefault">
+                <orcl:Name>Gain</orcl:Name>
+              </Combinator>
+            </Expression>
           </Nodes>
           <Edges>
             <Edge From="0" To="1" Label="Source1" />
@@ -310,6 +394,23 @@
             <Edge From="9" To="10" Label="Source1" />
             <Edge From="10" To="11" Label="Source1" />
             <Edge From="12" To="13" Label="Source1" />
+            <Edge From="15" To="16" Label="Source1" />
+            <Edge From="16" To="20" Label="Source1" />
+            <Edge From="17" To="18" Label="Source1" />
+            <Edge From="18" To="19" Label="Source1" />
+            <Edge From="19" To="20" Label="Source2" />
+            <Edge From="20" To="21" Label="Source1" />
+            <Edge From="21" To="13" Label="Source2" />
+            <Edge From="22" To="26" Label="Source1" />
+            <Edge From="23" To="24" Label="Source1" />
+            <Edge From="24" To="25" Label="Source1" />
+            <Edge From="25" To="26" Label="Source2" />
+            <Edge From="26" To="27" Label="Source1" />
+            <Edge From="27" To="13" Label="Source3" />
+            <Edge From="16" To="28" Label="Source1" />
+            <Edge From="28" To="29" Label="Source1" />
+            <Edge From="22" To="30" Label="Source1" />
+            <Edge From="30" To="31" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
