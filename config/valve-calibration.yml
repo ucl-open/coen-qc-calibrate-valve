@@ -6,7 +6,7 @@
 # The balance is read by eye (OpenRigs.Devices ManualBalance): after each burst the run asks for the
 # weight and waits up to weighTimeoutS for it to be typed, taking that one reading (settleWindow 1).
 # Each sample fires `repeats` pulses at `size` ms, then weighs the gain. Seven widths, closer
-# together at the short end: 20, 25, 30, 40, 50, 70 and 100 ms, each measured 3 times, in rounds of
+# together at the short end: 20, 25, 30, 40, 50, 70 and 100 ms, each measured twice (three times until 9 Nov 2026, Pip: "just do 2 repeats, not 3, for now"), in rounds of
 # all seven in a shuffled order (fixed here, the same every run), so drift over the run falls on
 # every width alike; each burst is a point of the curve, so a line fitted to it (LinearFit) averages the repeats. Every burst delivers about what 500
 # pulses at 20 ms do, taking volume as proportional to width: 500 at 20 ms, 400 at 25, 333 at 30,
@@ -30,13 +30,6 @@ procedure:
     - { size: 40, repeats: 250, interPulseIntervalMs: 63 }
     - { size: 30, repeats: 333, interPulseIntervalMs: 63 }
     - { size: 50, repeats: 200, interPulseIntervalMs: 63 }
-    - { size: 30, repeats: 333, interPulseIntervalMs: 63 } # round 3
-    - { size: 50, repeats: 200, interPulseIntervalMs: 63 }
-    - { size: 40, repeats: 250, interPulseIntervalMs: 63 }
-    - { size: 25, repeats: 400, interPulseIntervalMs: 63 }
-    - { size: 100, repeats: 100, interPulseIntervalMs: 63 }
-    - { size: 20, repeats: 500, interPulseIntervalMs: 63 }
-    - { size: 70, repeats: 143, interPulseIntervalMs: 63 }
   xName: pulse_width
   xUnit: ms
   primingPulses: 5
