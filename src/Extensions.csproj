@@ -7,6 +7,7 @@
   <ItemGroup>
     <PackageReference Include="Bonsai.Core" Version="2.9.0" />
     <PackageReference Include="OpenRigs.Core" Version="0.1.1-coen-lab.4" />
+    <PackageReference Include="Harp.StepperDriver" Version="0.4.0" />
   </ItemGroup>
 
 </Project>
