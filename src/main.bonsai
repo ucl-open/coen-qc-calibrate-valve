@@ -94,18 +94,11 @@
               <ControlEndpoint>@tcp://127.0.0.1:5561</ControlEndpoint>
               <Parameters>
                 <Parameter>
-                  <Name>CameraExposure</Name>
+                  <Name>CameraExposureUs</Name>
                   <Value />
-                  <Description>The calibration camera's exposure in DirectShow's steps, log2 of seconds (-6 is 1/64 s, -8 is 1/256 s), taken by the camera at once, so the balance's display can be made readable. Starts at -6.</Description>
-                  <Minimum>-13</Minimum>
-                  <Maximum>0</Maximum>
-                  <WholeNumber>true</WholeNumber>
-                </Parameter>
-                <Parameter>
-                  <Name>CameraGain</Name>
-                  <Value />
-                  <Description>The calibration camera's gain in its own units, taken by the camera at once; a camera without one ignores it. Starts at 0.</Description>
-                  <Minimum>0</Minimum>
+                  <Description>The calibration camera's exposure in microseconds, taken by the camera at once, so the balance's display can be made readable: the nearest power of two of a second a USB camera allows (15625 is 1/64 s). Starts at 15625.</Description>
+                  <Minimum>100</Minimum>
+                  <Maximum>1000000</Maximum>
                 </Parameter>
               </Parameters>
               <Commands>
@@ -157,7 +150,7 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Hardware</Name>
-        <Description>The behavior board on PortName, with the PulseController pulsing the OutputPulseEnable lines: its TriggerCalibratedPulse fires one pulse of a given width on a line, as in a session. The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. Ready 1 s after the board's first event, once the PulseController's setup has gone out. The calibration camera (Pip, 10 Nov 2026) is a USB camera plugged in on the balance, a different one on each rig and in no rig.yml: OpenRigs.Video UsbCamera opens the first that is not the rig's own (none of rig.yml's camera serials, no FLIR or Basler vendor id), free-running, and publishes its frames as Camera-Temporary.Data, which LiveView streams as a temporary device and Snapshots saves; none plugged in stops the workflow at start, saying so. Nothing is recorded. Its exposure and gain are the controller's CameraExposure and CameraGain parameters: each starts at -6 (1/64 s) and 0 and takes each value the controller sets (OnParameterSet) straight to the open camera, so rig-control's Calibrations page can make the balance's display readable; ParameterDefault shows the starting values 1 s in, once the controller is up. No camera trigger runs, so DO0 and DO1 stay free.</Description>
+        <Description>The behavior board on PortName, with the PulseController pulsing the OutputPulseEnable lines: its TriggerCalibratedPulse fires one pulse of a given width on a line, as in a session. The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. Ready 1 s after the board's first event, once the PulseController's setup has gone out. The calibration camera (Pip, 10 Nov 2026) is a USB camera plugged in on the balance, a different one on each rig and in no rig.yml: OpenRigs.Video UsbCamera opens the first that is not the rig's own (none of rig.yml's camera serials, no FLIR or Basler vendor id), free-running, and publishes its frames as Camera-Temporary.Data, which LiveView streams as a temporary device and Snapshots saves; none plugged in stops the workflow at start, saying so. Nothing is recorded. Its exposure is the controller's CameraExposureUs parameter, the rig cameras' name and unit (Pip, 10 Nov 2026: one setting for one meaning), taken at the nearest power of two of a second the camera allows: it starts at 15625 (1/64 s) and takes each value the controller sets (OnParameterSet) straight to the open camera, so rig-control's Calibrations page can make the balance's display readable; ParameterDefault shows the starting value 1 s in, once the controller is up. No gain: a USB camera's has no unit common to its models. No camera trigger runs, so DO0 and DO1 stay free.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
@@ -278,8 +271,7 @@
                 <vid:DevicePath />
                 <vid:FrameWidth>1920</vid:FrameWidth>
                 <vid:FrameHeight>1080</vid:FrameHeight>
-                <vid:Exposure>-6</vid:Exposure>
-                <vid:Gain>0</vid:Gain>
+                <vid:ExposureTime>15625</vid:ExposureTime>
               </Combinator>
             </Expression>
             <Expression xsi:type="rx:BehaviorSubject">
@@ -290,7 +282,7 @@
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="DoubleProperty">
-                <Value>-6</Value>
+                <Value>15625</Value>
               </Combinator>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
@@ -298,7 +290,7 @@
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="orcl:OnParameterSet">
-                <orcl:Name>CameraExposure</orcl:Name>
+                <orcl:Name>CameraExposureUs</orcl:Name>
               </Combinator>
             </Expression>
             <Expression xsi:type="scr:ExpressionTransform">
@@ -309,31 +301,7 @@
             </Expression>
             <Expression xsi:type="PropertyMapping">
               <PropertyMappings>
-                <Property Name="Exposure" />
-              </PropertyMappings>
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="DoubleProperty">
-                <Value>0</Value>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="SubscribeSubject">
-              <Name>ControlEvents</Name>
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="orcl:OnParameterSet">
-                <orcl:Name>CameraGain</orcl:Name>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="scr:ExpressionTransform">
-              <scr:Expression>Convert.ToDouble(it)</scr:Expression>
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="rx:Merge" />
-            </Expression>
-            <Expression xsi:type="PropertyMapping">
-              <PropertyMappings>
-                <Property Name="Gain" />
+                <Property Name="ExposureTime" />
               </PropertyMappings>
             </Expression>
             <Expression xsi:type="Combinator">
@@ -343,17 +311,7 @@
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="orcl:ParameterDefault">
-                <orcl:Name>CameraExposure</orcl:Name>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="rx:Delay">
-                <rx:DueTime>PT1S</rx:DueTime>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="orcl:ParameterDefault">
-                <orcl:Name>CameraGain</orcl:Name>
+                <orcl:Name>CameraExposureUs</orcl:Name>
               </Combinator>
             </Expression>
           </Nodes>
@@ -368,16 +326,8 @@
             <Edge From="13" To="14" Label="Source2" />
             <Edge From="14" To="15" Label="Source1" />
             <Edge From="15" To="7" Label="Source1" />
-            <Edge From="16" To="20" Label="Source1" />
-            <Edge From="17" To="18" Label="Source1" />
-            <Edge From="18" To="19" Label="Source1" />
-            <Edge From="19" To="20" Label="Source2" />
-            <Edge From="20" To="21" Label="Source1" />
-            <Edge From="21" To="7" Label="Source2" />
-            <Edge From="10" To="22" Label="Source1" />
-            <Edge From="22" To="23" Label="Source1" />
-            <Edge From="16" To="24" Label="Source1" />
-            <Edge From="24" To="25" Label="Source1" />
+            <Edge From="10" To="16" Label="Source1" />
+            <Edge From="16" To="17" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
