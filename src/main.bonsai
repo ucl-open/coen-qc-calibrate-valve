@@ -336,7 +336,7 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Calibration</Name>
-        <Description>Reports the valves and the weights file as the target metric. At Go, RunCalibration with ValveCalibrationSettings (the bursts of OpenRigs.Core's DispenseCalibration, without its fit, expanded over the valves): it primes each valve and weighs a baseline, then fires each burst on its valve through TriggerCalibratedPulse (ValvePulseBurst) and weighs on BalanceReading. Each burst is written as it is weighed to calibration\&lt;FileName&gt;-weights.csv in RigConfigDirectory (columns size, repeats, before, after, channel: its pulse width in ms, its pulses with the drips fired after it (SampleDrips), the grams before and after it, and its line, 1 to 3; replaced every run). No fit here: once the run completes, rig-control splits the rows by channel, builds each valve's curve and writes it to that valve's calibration\*.json, with history, refusing one that is not monotone. Reports how many bursts were weighed as the points metric, then Finished.</Description>
+        <Description>Reports the valves and the weights file as the target metric. At Go, RunCalibration with ValveCalibrationSettings (the bursts of OpenRigs.Core's DispenseCalibration, without its fit, expanded over the valves): it primes each valve and weighs a baseline, then fires each burst on its valve through TriggerCalibratedPulse (ValvePulseBurst) and weighs on BalanceReading. Each burst is written as it is weighed to calibration\&lt;FileName&gt;-weights.csv in RigConfigDirectory (columns size, repeats, before, after, channel: its pulse width in ms, its pulses with the drips fired after it (SampleDrips), the grams before and after it, and its line, 1 to 3; replaced every run). No fit here: once the run completes, rig-control splits the rows by channel, builds each valve's curve and writes it to that valve's calibration\*.json, with history, refusing one that is not monotone. Reports how many bursts were weighed as the points metric, then Finished. Each weighing is zipped with its drips from SampleDrips, which never completes, so SampleDrips is cut off once RunCalibration's last weighing has passed (Last, TakeUntil): a Zip whose first input has ended still waits for its second, and without the cut the rows never ended, so Finished was never reported (10 Nov 2026: Calibrate All stuck after its last weight).</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
@@ -692,6 +692,12 @@
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="rx:Zip" />
             </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:Last" />
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:TakeUntil" />
+            </Expression>
           </Nodes>
           <Edges>
             <Edge From="0" To="1" Label="Source1" />
@@ -710,7 +716,10 @@
             <Edge From="14" To="15" Label="Source1" />
             <Edge From="15" To="16" Label="Source1" />
             <Edge From="16" To="25" Label="Source1" />
-            <Edge From="24" To="25" Label="Source2" />
+            <Edge From="16" To="26" Label="Source1" />
+            <Edge From="24" To="27" Label="Source1" />
+            <Edge From="26" To="27" Label="Source2" />
+            <Edge From="27" To="25" Label="Source2" />
             <Edge From="25" To="17" Label="Source1" />
             <Edge From="17" To="18" Label="Source1" />
             <Edge From="11" To="19" Label="Source1" />
