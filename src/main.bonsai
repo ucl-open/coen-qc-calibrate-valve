@@ -8,6 +8,7 @@
                  xmlns:orcl="clr-namespace:OpenRigs.Control;assembly=OpenRigs.Control"
                  xmlns:lv="clr-namespace:OpenRigs.LiveView;assembly=OpenRigs.LiveView"
                  xmlns:cv="clr-namespace:Bonsai.Vision;assembly=Bonsai.Vision"
+                 xmlns:vid="clr-namespace:OpenRigs.Video;assembly=OpenRigs.Video"
                  xmlns:scr="clr-namespace:Bonsai.Scripting.Expressions;assembly=Bonsai.Scripting.Expressions"
                  xmlns:vc="clr-namespace:CoenQcCalibrateValve;assembly=Extensions"
                  xmlns:sys="clr-namespace:System;assembly=mscorlib"
@@ -93,17 +94,18 @@
               <ControlEndpoint>@tcp://127.0.0.1:5561</ControlEndpoint>
               <Parameters>
                 <Parameter>
-                  <Name>CameraExposureUs</Name>
+                  <Name>CameraExposure</Name>
                   <Value />
-                  <Description>The body camera's exposure in microseconds, taken by the camera at once, so the balance's display can be made readable while calibrating. Starts at CameraExposureTime (rig.yml's). A calibration's only: rig.yml is not changed.</Description>
-                  <Minimum>100</Minimum>
+                  <Description>The calibration camera's exposure in DirectShow's steps, log2 of seconds (-6 is 1/64 s, -8 is 1/256 s), taken by the camera at once, so the balance's display can be made readable. Starts at -6.</Description>
+                  <Minimum>-13</Minimum>
+                  <Maximum>0</Maximum>
+                  <WholeNumber>true</WholeNumber>
                 </Parameter>
                 <Parameter>
-                  <Name>CameraGainDb</Name>
+                  <Name>CameraGain</Name>
                   <Value />
-                  <Description>The body camera's gain in dB, taken by the camera at once. Starts at 0.</Description>
+                  <Description>The calibration camera's gain in its own units, taken by the camera at once; a camera without one ignores it. Starts at 0.</Description>
                   <Minimum>0</Minimum>
-                  <Maximum>10</Maximum>
                 </Parameter>
               </Parameters>
               <Commands>
@@ -117,7 +119,7 @@
                 </Command>
                 <Command>
                   <Name>Snapshot</Name>
-                  <Description>Saves the body camera's latest frame, full size, as calibration\images\&lt;text&gt;.jpg beside rig.yml: rig-control's Calibrations page reads the balance from it.</Description>
+                  <Description>Saves the calibration camera's latest frame, full size, as calibration\images\&lt;text&gt;.jpg beside rig.yml: rig-control's Calibrations page reads the balance from it.</Description>
                 </Command>
               </Commands>
             </Expression>
@@ -152,13 +154,10 @@
       <Expression xsi:type="ExternalizedMapping">
         <Property Name="PortName" DisplayName="PortName" Description="The behavior board's serial port: rig.yml's behaviorBoard: main: portName, which rig-control gives at launch." />
         <Property Name="OutputPulseEnable" DisplayName="OutputPulseEnable" Description="The board lines that pulse, such as DO1, DO2: rig.yml's pulseController outputPulseEnable, which rig-control gives at launch." />
-        <Property Name="CameraSerialNumber" DisplayName="CameraSerialNumber" Description="The camera shown live while calibrating: rig.yml's camera: body: serialNumber, which rig-control gives at launch." />
-        <Property Name="CameraExposureTime" DisplayName="CameraExposureTime" Description="That camera's exposure in microseconds: rig.yml's camera: body: exposureTime, which rig-control gives at launch." />
-        <Property Name="CameraFrequency" DisplayName="CameraFrequency" Description="The camera trigger's rate in Hz (trigger 0, the DO0 pin): rig.yml's cameraTriggerController trigger0Frequency, which rig-control gives at launch." />
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Hardware</Name>
-        <Description>The behavior board on PortName, with the PulseController pulsing the OutputPulseEnable lines: its TriggerCalibratedPulse fires one pulse of a given width on a line, as in a session. The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. Ready 1 s after the board's first event, once the PulseController's setup has gone out. The body camera (CameraSerialNumber, CameraExposureTime) runs on camera trigger 0 (DO0, at CameraFrequency), started 2 s in, publishing Camera-Body.Data for the live view only: nothing is recorded. Its exposure and gain are the controller's CameraExposureUs and CameraGainDb parameters (Pip, 9 Nov 2026), as coen-behaviour-box's: each starts at CameraExposureTime and 0 dB and takes each value the controller sets (OnParameterSet) straight to the open camera, so rig-control's Calibrations page can make the balance's display readable; ParameterDefault shows the starting values 1 s in, once the controller is up. Trigger 1 stays off, so DO1 stays a valve line.</Description>
+        <Description>The behavior board on PortName, with the PulseController pulsing the OutputPulseEnable lines: its TriggerCalibratedPulse fires one pulse of a given width on a line, as in a session. The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. Ready 1 s after the board's first event, once the PulseController's setup has gone out. The calibration camera (Pip, 10 Nov 2026) is a USB camera plugged in on the balance, a different one on each rig and in no rig.yml: OpenRigs.Video UsbCamera opens the first that is not the rig's own (none of rig.yml's camera serials, no FLIR or Basler vendor id), free-running, and publishes its frames as Camera-Temporary.Data, which LiveView streams as a temporary device and Snapshots saves; none plugged in stops the workflow at start, saying so. Nothing is recorded. Its exposure and gain are the controller's CameraExposure and CameraGain parameters: each starts at -6 (1/64 s) and 0 and takes each value the controller sets (OnParameterSet) straight to the open camera, so rig-control's Calibrations page can make the balance's display readable; ParameterDefault shows the starting values 1 s in, once the controller is up. No camera trigger runs, so DO0 and DO1 stay free.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
@@ -273,53 +272,25 @@
                 </Edges>
               </Workflow>
             </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Trigger0Frequency" DisplayName="CameraFrequency" />
-            </Expression>
-            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.CameraTriggerController.bonsai">
-              <EnableTrigger0>true</EnableTrigger0>
-              <EnableTrigger1>false</EnableTrigger1>
-              <Trigger0Frequency>50</Trigger0Frequency>
-              <Trigger1Frequency>50</Trigger1Frequency>
-              <BehaviorCommandsSubjectName>BehaviorBoard-Main.Commands</BehaviorCommandsSubjectName>
-              <BehaviorEventsSubjectName>BehaviorBoard-Main.Data</BehaviorEventsSubjectName>
-              <Camera0TriggerEventsSubjectName>Camera0TriggerEvents</Camera0TriggerEventsSubjectName>
-              <Camera1TriggerEventsSubjectName>Camera1TriggerEvents</Camera1TriggerEventsSubjectName>
-            </Expression>
             <Expression xsi:type="Combinator">
-              <Combinator xsi:type="BooleanProperty">
-                <Value>true</Value>
+              <Combinator xsi:type="vid:UsbCamera">
+                <vid:ConfigRoot>C:\Coen-Lab-Local\RigConfigs</vid:ConfigRoot>
+                <vid:DevicePath />
+                <vid:FrameWidth>1920</vid:FrameWidth>
+                <vid:FrameHeight>1080</vid:FrameHeight>
+                <vid:Exposure>-6</vid:Exposure>
+                <vid:Gain>0</vid:Gain>
               </Combinator>
             </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="rx:Delay">
-                <rx:DueTime>PT2S</rx:DueTime>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="MulticastSubject">
-              <Name>StartCameras</Name>
-            </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="SerialNumber" DisplayName="CameraSerialNumber" />
-            </Expression>
-            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:TriggeredSpinnaker.bonsai">
-              <ExposureTime>19000</ExposureTime>
-              <Gain>0</Gain>
-              <Binning>1</Binning>
-              <SerialNumber>00000000</SerialNumber>
-              <ColorProcessing>Default</ColorProcessing>
-              <CameraTriggerEventsSubjectName>Camera0TriggerEvents</CameraTriggerEventsSubjectName>
-              <FrameEventsSubjectName>Camera-Body.Data</FrameEventsSubjectName>
+            <Expression xsi:type="rx:BehaviorSubject">
+              <Name>Camera-Temporary.Data</Name>
             </Expression>
             <Expression xsi:type="rx:BehaviorSubject" TypeArguments="sys:Tuple(sys:Int32,sys:Int32)">
               <rx:Name>BurstPulses</rx:Name>
             </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Value" DisplayName="CameraExposureTime" />
-            </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="DoubleProperty">
-                <Value>19000</Value>
+                <Value>-6</Value>
               </Combinator>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
@@ -327,7 +298,7 @@
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="orcl:OnParameterSet">
-                <orcl:Name>CameraExposureUs</orcl:Name>
+                <orcl:Name>CameraExposure</orcl:Name>
               </Combinator>
             </Expression>
             <Expression xsi:type="scr:ExpressionTransform">
@@ -338,7 +309,7 @@
             </Expression>
             <Expression xsi:type="PropertyMapping">
               <PropertyMappings>
-                <Property Name="ExposureTime" />
+                <Property Name="Exposure" />
               </PropertyMappings>
             </Expression>
             <Expression xsi:type="Combinator">
@@ -351,7 +322,7 @@
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="orcl:OnParameterSet">
-                <orcl:Name>CameraGainDb</orcl:Name>
+                <orcl:Name>CameraGain</orcl:Name>
               </Combinator>
             </Expression>
             <Expression xsi:type="scr:ExpressionTransform">
@@ -372,7 +343,7 @@
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="orcl:ParameterDefault">
-                <orcl:Name>CameraExposureUs</orcl:Name>
+                <orcl:Name>CameraExposure</orcl:Name>
               </Combinator>
             </Expression>
             <Expression xsi:type="Combinator">
@@ -382,7 +353,7 @@
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="orcl:ParameterDefault">
-                <orcl:Name>CameraGainDb</orcl:Name>
+                <orcl:Name>CameraGain</orcl:Name>
               </Combinator>
             </Expression>
           </Nodes>
@@ -391,26 +362,22 @@
             <Edge From="2" To="3" Label="Source1" />
             <Edge From="5" To="6" Label="Source1" />
             <Edge From="7" To="8" Label="Source1" />
-            <Edge From="9" To="10" Label="Source1" />
-            <Edge From="10" To="11" Label="Source1" />
+            <Edge From="10" To="14" Label="Source1" />
+            <Edge From="11" To="12" Label="Source1" />
             <Edge From="12" To="13" Label="Source1" />
-            <Edge From="15" To="16" Label="Source1" />
+            <Edge From="13" To="14" Label="Source2" />
+            <Edge From="14" To="15" Label="Source1" />
+            <Edge From="15" To="7" Label="Source1" />
             <Edge From="16" To="20" Label="Source1" />
             <Edge From="17" To="18" Label="Source1" />
             <Edge From="18" To="19" Label="Source1" />
             <Edge From="19" To="20" Label="Source2" />
             <Edge From="20" To="21" Label="Source1" />
-            <Edge From="21" To="13" Label="Source2" />
-            <Edge From="22" To="26" Label="Source1" />
-            <Edge From="23" To="24" Label="Source1" />
+            <Edge From="21" To="7" Label="Source2" />
+            <Edge From="10" To="22" Label="Source1" />
+            <Edge From="22" To="23" Label="Source1" />
+            <Edge From="16" To="24" Label="Source1" />
             <Edge From="24" To="25" Label="Source1" />
-            <Edge From="25" To="26" Label="Source2" />
-            <Edge From="26" To="27" Label="Source1" />
-            <Edge From="27" To="13" Label="Source3" />
-            <Edge From="16" To="28" Label="Source1" />
-            <Edge From="28" To="29" Label="Source1" />
-            <Edge From="22" To="30" Label="Source1" />
-            <Edge From="30" To="31" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
@@ -805,14 +772,14 @@
       </Expression>
       <Expression xsi:type="lv:StreamDevices">
         <Name>LiveView</Name>
-        <Description>Streams the devices in this machine's rig.yml that the workflow publishes, over ZeroMQ, for rig-control's Calibrations page: the body camera as Camera-Body.video on TCP 5558 (5 JPEG frames a second at 320 x 240 unless its liveView: in rig.yml says otherwise), data on 5556. Live only: nothing is recorded. Last in the workflow, because it streams only subjects built before it.</Description>
+        <Description>Streams the devices in this machine's rig.yml that the workflow publishes, over ZeroMQ, for rig-control's Calibrations page: the calibration camera, a temporary device in no rig.yml (Camera-Temporary.Data), as Camera-Temporary.video on TCP 5558 (5 JPEG frames a second at 320 x 240), data on 5556. Live only: nothing is recorded. Last in the workflow, because it streams only subjects built before it.</Description>
         <lv:ConfigRoot>C:\Coen-Lab-Local\RigConfigs</lv:ConfigRoot>
         <lv:DataPort>5556</lv:DataPort>
         <lv:VideoPort>5558</lv:VideoPort>
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Snapshots</Name>
-        <Description>Each Snapshot command saves the body camera's latest frame (Camera-Body.Data), full size, as &lt;RigConfigDirectory&gt;\calibration\images\&lt;the command's text&gt;.jpg, the folder made if need be. rig-control's Calibrations page asks for one once each weight is due and reads the balance's display from it, so no one types the weight. A Snapshot before the camera's first frame saves nothing. After LiveView, which streams nothing of it, so the nodes before it keep their places.</Description>
+        <Description>Each Snapshot command saves the calibration camera's latest frame (Camera-Temporary.Data), full size, as &lt;RigConfigDirectory&gt;\calibration\images\&lt;the command's text&gt;.jpg, the folder made if need be. rig-control's Calibrations page asks for one once each weight is due and reads the balance's display from it, so no one types the weight. A Snapshot before the camera's first frame saves nothing. After LiveView, which streams nothing of it, so the nodes before it keep their places.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="SubscribeSubject">
@@ -834,7 +801,7 @@
               <Selector>Item1,Item2</Selector>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
-              <Name>Camera-Body.Data</Name>
+              <Name>Camera-Temporary.Data</Name>
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="rx:WithLatestFrom" />
@@ -856,7 +823,7 @@
                     </PropertyMappings>
                   </Expression>
                   <Expression xsi:type="MemberSelector">
-                    <Selector>Item2.Value.Image</Selector>
+                    <Selector>Item2</Selector>
                   </Expression>
                   <Expression xsi:type="Combinator">
                     <Combinator xsi:type="cv:SaveImage">
