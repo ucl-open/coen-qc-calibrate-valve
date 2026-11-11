@@ -3,8 +3,9 @@
 # fitOrder is unused, since only LinearFit is built). The valve line, its file name and the behavior
 # board's port come from the rig's own rig.yml, through rig-control's launch, never from here.
 #
-# The balance is read by eye (OpenRigs.Devices ManualBalance): after each burst the run asks for the
-# weight and waits up to weighTimeoutS for it to be typed, taking that one reading (settleWindow 1).
+# The balance is read by rig-control (OpenRigs.Devices ManualBalance): after each burst the run asks for
+# the weight and waits up to weighTimeoutS for rig-control to send it, read off the camera or typed,
+# taking that one reading (settleWindow 1).
 # Each sample fires `repeats` pulses at `size` ms, then weighs the gain. Seven widths, closer
 # together at the short end: 20, 25, 30, 40, 50, 70 and 100 ms, each measured twice (three times until 9 Nov 2026, Pip: "just do 2 repeats, not 3, for now"), in rounds of
 # all seven, each round shuffled anew every run (Pip, 11 Nov 2026: "Shuffle every round"; the order

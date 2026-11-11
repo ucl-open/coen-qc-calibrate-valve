@@ -73,7 +73,7 @@ namespace CoenQcCalibrateValve
     }
 
     [Combinator]
-    [Description("Expands the valve calibration's procedure over the valves to calibrate: each sample once per valve, in turn (DO1's burst, weighed, then DO2's, weighed, and so on), and the priming pulses once per valve. Channels lists the valves (such as 1, 2, or DO1, DO2); empty, the one Channel. One valve gives the procedure as written.")]
+    [Description("Expands the valve calibration's procedure over the valves to calibrate: each round (each width's first sample, then each width's second, ...) in a new random order every run, each sample once per valve, in turn (DO1's burst, weighed, then DO2's, weighed, and so on), and the priming pulses once per valve. Channels lists the valves (such as 1, 2, or DO1, DO2); empty, the one Channel.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
     public class InterleaveValves
     {
