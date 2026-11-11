@@ -42,6 +42,10 @@ The body camera can see the balance's display, so rig-control's Calibrations pag
 3. Press **Start**. The procedure primes the line (5 pulses of 500 ms), asks for the baseline weight, fires each sample's pulses and asks for each weight.
 4. **Finished** once every burst is weighed (`points` says how many). rig-control then builds the curve and the page lists the volume per pulse at each width and shows it, or says why nothing was written.
 
+## Delivering Water at a Reward Size
+
+`src\deliver.bonsai` checks a calibration by weighing what it gives. It writes nothing. On a valve's details, the Calibrations page reads the reward size's pulse width off the curve, then launches it with `Channel`, `SizeMs` and `Pulses` (1 ml at that size), and with the board and the stage as for a calibration. On a rig with a lick spout stage, the spouts go forward before **Ready** and back after (main.bonsai's Spouts group, copied). Go fires the pulses on `TriggerCalibratedPulse`, 63 ms apart (`InterPulseIntervalMs`), and reports each pulse as the `delivered` metric. **Finished** comes once the last pulse has landed.
+
 ## What It Writes
 
 The workflow writes `calibration\<FileName>-weights.csv` beside rig.yml, one row per burst as it is weighed, replaced each run: `size` (pulse width, ms), `repeats` (pulses), `before` and `after` (the balance in grams before and after the burst; the first row's `before` is the baseline after priming), and `channel` (the line it fired on, 1 to 3).
