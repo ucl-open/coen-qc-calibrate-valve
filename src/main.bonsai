@@ -748,16 +748,9 @@
           </Edges>
         </Workflow>
       </Expression>
-      <Expression xsi:type="lv:StreamDevices">
-        <Name>LiveView</Name>
-        <Description>Streams the devices in this machine's rig.yml that the workflow publishes, over ZeroMQ, for rig-control's Calibrations page: the calibration camera, a temporary device in no rig.yml (Camera-Temporary.Data), as Camera-Temporary.video on TCP 5558 (5 JPEG frames a second at 320 x 240), data on 5556. Live only: nothing is recorded. Last in the workflow, because it streams only subjects built before it.</Description>
-        <lv:ConfigRoot>C:\Coen-Lab-Local\RigConfigs</lv:ConfigRoot>
-        <lv:DataPort>5556</lv:DataPort>
-        <lv:VideoPort>5558</lv:VideoPort>
-      </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Snapshots</Name>
-        <Description>Each Snapshot command saves the calibration camera's latest frame (Camera-Temporary.Data), full size, as &lt;RigConfigDirectory&gt;\calibration\images\&lt;the command's text&gt;.jpg, the folder made if need be. rig-control's Calibrations page asks for one once each weight is due and reads the balance's display from it, so no one types the weight. A Snapshot before the camera's first frame saves nothing. After LiveView, which streams nothing of it, so the nodes before it keep their places.</Description>
+        <Description>Each Snapshot command saves the calibration camera's latest frame (Camera-Temporary.Data), full size, as &lt;RigConfigDirectory&gt;\calibration\images\&lt;the command's text&gt;.jpg, the folder made if need be. rig-control's Calibrations page asks for one once each weight is due and reads the balance's display from it, so no one types the weight. A Snapshot before the camera's first frame saves nothing. Before LiveView, which must stay the last node: it streams only subjects built before it.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="SubscribeSubject">
@@ -1853,13 +1846,20 @@
           </Edges>
         </Workflow>
       </Expression>
+      <Expression xsi:type="lv:StreamDevices">
+        <Name>LiveView</Name>
+        <Description>Streams the devices in this machine's rig.yml that the workflow publishes, over ZeroMQ, for rig-control's Calibrations page: the calibration camera, a temporary device in no rig.yml (Camera-Temporary.Data), as Camera-Temporary.video on TCP 5558 (5 JPEG frames a second at 320 x 240), data on 5556. Live only: nothing is recorded. Last in the workflow, because it streams only subjects built before it.</Description>
+        <lv:ConfigRoot>C:\Coen-Lab-Local\RigConfigs</lv:ConfigRoot>
+        <lv:DataPort>5556</lv:DataPort>
+        <lv:VideoPort>5558</lv:VideoPort>
+      </Expression>
     </Nodes>
     <Edges>
       <Edge From="0" To="1" Label="Source1" />
       <Edge From="2" To="3" Label="Source1" />
       <Edge From="4" To="5" Label="Source1" />
       <Edge From="6" To="7" Label="Source1" />
-      <Edge From="10" To="11" Label="Source1" />
+      <Edge From="9" To="10" Label="Source1" />
     </Edges>
   </Workflow>
 </WorkflowBuilder>
