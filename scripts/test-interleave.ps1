@@ -39,17 +39,41 @@ foreach ($bad in 'DO4', '1, 1', 'left') {
     Check "Channels '$bad' refused" $threw
 }
 
-$all = [CoenQcCalibrateValve.InterleaveValves]::Expand((New-Settings), [int[]]@(1, 2)).Procedure
+$all = [CoenQcCalibrateValve.InterleaveValves]::Expand((New-Settings), [int[]]@(1, 2), $null).Procedure
 $order = @($all.Samples | ForEach-Object { "$($_.Size)@$($_.Channel)" }) -join ' '
 Check "two valves: each burst on each in turn ($order)" ($order -eq '40@1 40@2 20@1 20@2')
 Check 'two valves: repeats kept' ((@($all.Samples | ForEach-Object { $_.Repeats }) -join ',') -eq '250,250,500,500')
 Check 'two valves: priming once per valve, counted together' ($all.PrimingPulses -eq 10)
 Check 'two valves: the valves read back in firing order' ((@([CoenQcCalibrateValve.Valves]::Of($all)) -join ',') -eq '1,2')
 
-$one = [CoenQcCalibrateValve.InterleaveValves]::Expand((New-Settings), [int[]]@(2)).Procedure
+$one = [CoenQcCalibrateValve.InterleaveValves]::Expand((New-Settings), [int[]]@(2), $null).Procedure
 $order = @($one.Samples | ForEach-Object { "$($_.Size)@$($_.Channel)" }) -join ' '
 Check "one valve: the procedure as written ($order)" ($order -eq '40@2 20@2')
 Check 'one valve: priming as written' ($one.PrimingPulses -eq 5)
+
+# Shuffled rounds (Pip, 11 Nov 2026): round k is each width's k-th sample, in a random order; rounds in turn.
+function New-Rounds {
+    $settings = New-Settings
+    foreach ($s in @(@(20, 500), @(70, 100), @(40, 250), @(70, 100), @(20, 500))) {
+        $sample = New-Object OpenRigs.Core.Calibration.DispenseSample
+        $sample.Size = $s[0]; $sample.Repeats = $s[1]; $sample.InterPulseIntervalMs = 63
+        $settings.Procedure.Samples.Add($sample)
+    }
+    $settings  # 40 20 20 70 40 70 20: rounds 40 20 70, 20 70 40 and 20
+}
+$orders = @{}
+foreach ($seed in 1..40) {
+    $s = [CoenQcCalibrateValve.InterleaveValves]::Expand((New-Rounds), [int[]]@(1, 2), (New-Object Random $seed)).Procedure.Samples
+    $sizes = @($s | ForEach-Object { $_.Size })
+    $ok = ((@($sizes[0..5] | Sort-Object) -join ',') -eq '20,20,40,40,70,70') -and ((@($sizes[6..11] | Sort-Object) -join ',') -eq '20,20,40,40,70,70') -and ((@($sizes[12..13]) -join ',') -eq '20,20')
+    $ok = $ok -and ((@($s | ForEach-Object { $_.Channel }) -join '') -eq '12121212121212')
+    $ok = $ok -and (@(0..6 | Where-Object { $sizes[2 * $_] -ne $sizes[2 * $_ + 1] }).Count -eq 0)
+    $ok = $ok -and (@($s | Where-Object { $_.Repeats -ne @{20 = 500; 40 = 250; 70 = 100}[$_.Size] }).Count -eq 0)
+    if (-not $ok) { break }
+    $orders[($sizes -join ' ')] = 1
+}
+Check 'shuffled: every round has its widths, both valves in turn, repeats kept' $ok
+Check "shuffled: the order changes from run to run ($($orders.Count) orders in 40)" ($orders.Count -gt 4)
 
 # Drips (Pip, 8 Nov 2026): a Drip command's pulses at the sample's width on its valve; for the
 # baseline, at the largest width on the line named.

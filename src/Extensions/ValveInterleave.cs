@@ -96,11 +96,14 @@ namespace CoenQcCalibrateValve
 
         public IObservable<DispenseCalibration> Process(IObservable<DispenseCalibration> source)
         {
-            return source.Select(settings => Expand(settings, Valves.Parse(Channels, Channel)));
+            return source.Select(settings => Expand(settings, Valves.Parse(Channels, Channel), new Random()));
         }
 
-        /// <summary>The settings with each sample once per valve, in turn, and the priming pulses once per valve.</summary>
-        public static DispenseCalibration Expand(DispenseCalibration settings, int[] valves)
+        /// <summary>The settings with each sample once per valve, in turn, and the priming pulses once per valve.
+        /// With `random`, each round is shuffled first (Pip, 11 Nov 2026: "Shuffle every round"): round k holds
+        /// each width's k-th sample, the rounds stay in turn, and a new order is drawn every run. Without it,
+        /// the samples as written.</summary>
+        public static DispenseCalibration Expand(DispenseCalibration settings, int[] valves, Random random)
         {
             var procedure = settings.Procedure;
             if (procedure == null || procedure.Samples == null || procedure.Samples.Count == 0)
@@ -108,7 +111,7 @@ namespace CoenQcCalibrateValve
                 throw new InvalidOperationException("The valve calibration's procedure has no samples.");
             }
             var expanded = new List<DispenseSample>();
-            foreach (var sample in procedure.Samples)
+            foreach (var sample in random == null ? procedure.Samples : Shuffled(procedure.Samples, random))
             {
                 foreach (var valve in valves)
                 {
@@ -125,6 +128,32 @@ namespace CoenQcCalibrateValve
             // ManualBalance counts the priming pulses as one burst: every valve's.
             procedure.PrimingPulses = procedure.PrimingPulses * valves.Length;
             return settings;
+        }
+
+        /// <summary>The samples by round (each width's first, then each width's second, ...), each round shuffled.</summary>
+        public static List<DispenseSample> Shuffled(IList<DispenseSample> samples, Random random)
+        {
+            var seen = new Dictionary<int, int>();
+            var rounds = new List<List<DispenseSample>>();
+            foreach (var sample in samples)
+            {
+                int round;
+                seen.TryGetValue(sample.Size, out round);
+                seen[sample.Size] = round + 1;
+                while (rounds.Count <= round) rounds.Add(new List<DispenseSample>());
+                rounds[round].Add(sample);
+            }
+            var order = new List<DispenseSample>();
+            foreach (var round in rounds)
+            {
+                for (int i = round.Count - 1; i > 0; i--)
+                {
+                    int j = random.Next(i + 1);
+                    var swap = round[i]; round[i] = round[j]; round[j] = swap;
+                }
+                order.AddRange(round);
+            }
+            return order;
         }
     }
 
