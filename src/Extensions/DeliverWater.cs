@@ -18,7 +18,7 @@ namespace CoenQcCalibrateValve
         int channel = 1;
         int sizeMs = 1;
         int pulses;
-        int interPulseIntervalMs = 63;
+        int interPulseIntervalMs = 80;
 
         [Description("The valve's behavior board line, 1 to 3 (DO1 to DO3).")]
         public int Channel

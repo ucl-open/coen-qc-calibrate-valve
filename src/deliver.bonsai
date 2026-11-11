@@ -132,7 +132,7 @@
         <Property Name="Channel" DisplayName="Channel" Description="The valve's behavior board line, 1 to 3 (DO1 to DO3): one rig.yml lists in outputPulseEnable. rig-control gives it at launch." />
         <Property Name="SizeMs" DisplayName="SizeMs" Description="Each pulse's width in ms: the reward size's, read off the valve's curve by rig-control." />
         <Property Name="Pulses" DisplayName="Pulses" Description="How many pulses: 1 ml at the reward size, by rig-control." />
-        <Property Name="InterPulseIntervalMs" DisplayName="InterPulseIntervalMs" Description="The gap after each pulse, in ms: 63, as the calibration's (config\valve-calibration.yml)." />
+        <Property Name="InterPulseIntervalMs" DisplayName="InterPulseIntervalMs" Description="The gap after each pulse, in ms: 80, as the calibration's (config\valve-calibration.yml)." />
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Deliver</Name>
@@ -158,7 +158,7 @@
                 <vc:Channel>1</vc:Channel>
                 <vc:SizeMs>1</vc:SizeMs>
                 <vc:Pulses>0</vc:Pulses>
-                <vc:InterPulseIntervalMs>63</vc:InterPulseIntervalMs>
+                <vc:InterPulseIntervalMs>80</vc:InterPulseIntervalMs>
               </Combinator>
             </Expression>
             <Expression xsi:type="MulticastSubject">

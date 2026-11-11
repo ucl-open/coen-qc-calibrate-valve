@@ -11,26 +11,27 @@
 # every width alike; each burst is a point of the curve, so a line fitted to it (LinearFit) averages the repeats. Every burst delivers about what 600
 # pulses at 20 ms do, taking volume as proportional to width: 600 at 20 ms, 480 at 25, 400 at 30,
 # 300 at 40, 240 at 50, 171 at 70 and 120 at 100 (Pip, 6 Nov 2026: 500 at 20 ms; 9 Nov 2026: "increase
-# delivery total volume by 25% (to a rounded number near that)", so +20%). Pulses are 63 ms apart, 1.25
-# times the 50 ms av-dome leaves between a reward's pulses (rig.yml interPulseInterval). Before each
+# delivery total volume by 25% (to a rounded number near that)", so +20%). Pulses are 80 ms apart (63
+# until 11 Nov 2026, Pip: "increase the time between clicks"; the valves over-delivered 12 to 27%
+# against their curves). Bursts are timed on the PC, so main.bonsai logs each pulse as the board fired it. Before each
 # weighing, rig-control fires drips of the same width until the balance moves (a drop can hang on
 # the spout); they are added to that burst's pulses in the weights file (Pip, 8 Nov 2026).
 procedure:
   samples:
-    - { size: 40, repeats: 300, interPulseIntervalMs: 63 } # round 1
-    - { size: 30, repeats: 400, interPulseIntervalMs: 63 }
-    - { size: 50, repeats: 240, interPulseIntervalMs: 63 }
-    - { size: 25, repeats: 480, interPulseIntervalMs: 63 }
-    - { size: 100, repeats: 120, interPulseIntervalMs: 63 }
-    - { size: 20, repeats: 600, interPulseIntervalMs: 63 }
-    - { size: 70, repeats: 171, interPulseIntervalMs: 63 }
-    - { size: 25, repeats: 480, interPulseIntervalMs: 63 } # round 2
-    - { size: 20, repeats: 600, interPulseIntervalMs: 63 }
-    - { size: 100, repeats: 120, interPulseIntervalMs: 63 }
-    - { size: 70, repeats: 171, interPulseIntervalMs: 63 }
-    - { size: 40, repeats: 300, interPulseIntervalMs: 63 }
-    - { size: 30, repeats: 400, interPulseIntervalMs: 63 }
-    - { size: 50, repeats: 240, interPulseIntervalMs: 63 }
+    - { size: 40, repeats: 300, interPulseIntervalMs: 80 } # round 1
+    - { size: 30, repeats: 400, interPulseIntervalMs: 80 }
+    - { size: 50, repeats: 240, interPulseIntervalMs: 80 }
+    - { size: 25, repeats: 480, interPulseIntervalMs: 80 }
+    - { size: 100, repeats: 120, interPulseIntervalMs: 80 }
+    - { size: 20, repeats: 600, interPulseIntervalMs: 80 }
+    - { size: 70, repeats: 171, interPulseIntervalMs: 80 }
+    - { size: 25, repeats: 480, interPulseIntervalMs: 80 } # round 2
+    - { size: 20, repeats: 600, interPulseIntervalMs: 80 }
+    - { size: 100, repeats: 120, interPulseIntervalMs: 80 }
+    - { size: 70, repeats: 171, interPulseIntervalMs: 80 }
+    - { size: 40, repeats: 300, interPulseIntervalMs: 80 }
+    - { size: 30, repeats: 400, interPulseIntervalMs: 80 }
+    - { size: 50, repeats: 240, interPulseIntervalMs: 80 }
   xName: pulse_width
   xUnit: ms
   primingPulses: 5

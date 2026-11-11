@@ -13,6 +13,7 @@
                  xmlns:vc="clr-namespace:CoenQcCalibrateValve;assembly=Extensions"
                  xmlns:sys="clr-namespace:System;assembly=mscorlib"
                  xmlns:harp="clr-namespace:Bonsai.Harp;assembly=Bonsai.Harp"
+                 xmlns:beh="clr-namespace:Harp.Behavior;assembly=Harp.Behavior"
                  xmlns:p3="clr-namespace:Harp.StepperDriver;assembly=Harp.StepperDriver"
                  xmlns="https://bonsai-rx.org/2018/workflow">
   <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines and the board as its rig.yml gives them (PortName, OutputPulseEnable, Channel or Channels, FileName). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its repeats. The procedure (pulse widths, repeats) is config\valve-calibration.yml. On a rig with a lick spout stage (StepperDriver1PortName, StepperDriver2PortName, SpoutMotor1Position to SpoutMotor5Position, which rig-control gives from rig.yml and the newest mouse's saved positions), the stage is zeroed and the spouts moved to that in-position before Ready, and taken back once the last burst is weighed (Spouts). Ready once the board answers and the spouts are in; Go runs the procedure; Finished once every burst is weighed.</Description>
@@ -717,6 +718,101 @@
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="rx:TakeUntil" />
             </Expression>
+            <Expression xsi:type="Format">
+              <Format>{0}\calibration\{1}-pulses.csv</Format>
+              <Selector>Item1,Item2.Item2</Selector>
+            </Expression>
+            <Expression xsi:type="rx:SelectMany">
+              <Name>WritePulses</Name>
+              <Description>The board's own record of every pulse, beside the weights: each write the behavior board answers, stamped with its clock, to calibration\&lt;FileName&gt;-pulses.csv (columns Seconds, Register, Value; replaced every run). OutputSet is a line set (Value its lines as a number: DO1 = 2048, DO2 = 4096, DO3 = 8192), the start of a pulse as the board did it; PulseDO1 to PulseDO3 the width written just before, in ms. Bursts are timed on the PC, so these rows show what the board really fired: pulses closer than their width merged (Pip, 11 Nov 2026: valves over-delivering 12 to 27% against their curves). Opened once its path is known, as WriteWeights, and closed with the last weighing.</Description>
+              <Workflow>
+                <Nodes>
+                  <Expression xsi:type="WorkflowInput">
+                    <Name>Source1</Name>
+                  </Expression>
+                  <Expression xsi:type="PropertyMapping">
+                    <PropertyMappings>
+                      <Property Name="FileName" />
+                    </PropertyMappings>
+                  </Expression>
+                  <Expression xsi:type="SubscribeSubject">
+                    <Name>BehaviorBoard-Main.Data</Name>
+                  </Expression>
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="harp:FilterMessageType">
+                      <harp:FilterType>Include</harp:FilterType>
+                      <harp:MessageType>Write</harp:MessageType>
+                    </Combinator>
+                  </Expression>
+                  <Expression xsi:type="beh:Parse">
+                    <harp:Register xsi:type="beh:TimestampedOutputSet" />
+                  </Expression>
+                  <Expression xsi:type="scr:ExpressionTransform">
+                    <scr:Expression>new(Seconds, "OutputSet" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
+                  </Expression>
+                  <Expression xsi:type="beh:Parse">
+                    <harp:Register xsi:type="beh:TimestampedPulseDO1" />
+                  </Expression>
+                  <Expression xsi:type="scr:ExpressionTransform">
+                    <scr:Expression>new(Seconds, "PulseDO1" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
+                  </Expression>
+                  <Expression xsi:type="beh:Parse">
+                    <harp:Register xsi:type="beh:TimestampedPulseDO2" />
+                  </Expression>
+                  <Expression xsi:type="scr:ExpressionTransform">
+                    <scr:Expression>new(Seconds, "PulseDO2" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
+                  </Expression>
+                  <Expression xsi:type="beh:Parse">
+                    <harp:Register xsi:type="beh:TimestampedPulseDO3" />
+                  </Expression>
+                  <Expression xsi:type="scr:ExpressionTransform">
+                    <scr:Expression>new(Seconds, "PulseDO3" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
+                  </Expression>
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="rx:Merge" />
+                  </Expression>
+                  <Expression xsi:type="SubscribeSubject">
+                    <Name>CalibrationWeights</Name>
+                  </Expression>
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="rx:Last" />
+                  </Expression>
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="rx:TakeUntil" />
+                  </Expression>
+                  <Expression xsi:type="io:CsvWriter">
+                    <io:FileName>valve-pulses.csv</io:FileName>
+                    <io:Append>false</io:Append>
+                    <io:Overwrite>true</io:Overwrite>
+                    <io:Suffix>None</io:Suffix>
+                    <io:IncludeHeader>true</io:IncludeHeader>
+                  </Expression>
+                  <Expression xsi:type="WorkflowOutput" />
+                </Nodes>
+                <Edges>
+                  <Edge From="0" To="1" Label="Source1" />
+                  <Edge From="2" To="3" Label="Source1" />
+                  <Edge From="3" To="4" Label="Source1" />
+                  <Edge From="3" To="6" Label="Source1" />
+                  <Edge From="3" To="8" Label="Source1" />
+                  <Edge From="3" To="10" Label="Source1" />
+                  <Edge From="4" To="5" Label="Source1" />
+                  <Edge From="6" To="7" Label="Source1" />
+                  <Edge From="8" To="9" Label="Source1" />
+                  <Edge From="10" To="11" Label="Source1" />
+                  <Edge From="5" To="12" Label="Source1" />
+                  <Edge From="7" To="12" Label="Source2" />
+                  <Edge From="9" To="12" Label="Source3" />
+                  <Edge From="11" To="12" Label="Source4" />
+                  <Edge From="12" To="15" Label="Source1" />
+                  <Edge From="13" To="14" Label="Source1" />
+                  <Edge From="14" To="15" Label="Source2" />
+                  <Edge From="15" To="16" Label="Source1" />
+                  <Edge From="1" To="16" Label="Source2" />
+                  <Edge From="16" To="17" Label="Source1" />
+                </Edges>
+              </Workflow>
+            </Expression>
           </Nodes>
           <Edges>
             <Edge From="0" To="1" Label="Source1" />
@@ -745,6 +841,8 @@
             <Edge From="19" To="20" Label="Source1" />
             <Edge From="20" To="21" Label="Source1" />
             <Edge From="21" To="22" Label="Source1" />
+            <Edge From="9" To="28" Label="Source1" />
+            <Edge From="28" To="29" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
