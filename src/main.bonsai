@@ -16,7 +16,7 @@
                  xmlns:beh="clr-namespace:Harp.Behavior;assembly=Harp.Behavior"
                  xmlns:p3="clr-namespace:Harp.StepperDriver;assembly=Harp.StepperDriver"
                  xmlns="https://bonsai-rx.org/2018/workflow">
-  <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines and the board as its rig.yml gives them (PortName, OutputPulseEnable, Channel or Channels, FileName). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its repeats. The procedure (pulse widths, repeats) is config\valve-calibration.yml. On a rig with a lick spout stage (StepperDriver1PortName, StepperDriver2PortName, SpoutMotor1Position to SpoutMotor5Position, which rig-control gives from rig.yml and the newest mouse's saved positions), the stage is zeroed and the spouts moved to that in-position before Ready, and taken back once the last burst is weighed (Spouts). Ready once the board answers and the spouts are in; Go runs the procedure; Finished once every burst is weighed.</Description>
+  <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines and the board as its rig.yml gives them (PortName, OutputPulseEnable, Channel or Channels, FileName). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its repeats. The procedure (pulse widths, repeats) is config\valve-calibration.yml, its widths scaled at Go so the smallest is the MinPulseMs parameter (ScaleWidths); before Go, Test commands fire a few pulses at a width so a valve's opening can be seen (TestBurst). On a rig with a lick spout stage (StepperDriver1PortName, StepperDriver2PortName, SpoutMotor1Position to SpoutMotor5Position, which rig-control gives from rig.yml and the newest mouse's saved positions), the stage is zeroed and the spouts moved to that in-position before Ready, and taken back once the last burst is weighed (Spouts). Ready once the board answers and the spouts are in; Go runs the procedure; Finished once every burst is weighed.</Description>
   <Workflow>
     <Nodes>
       <Expression xsi:type="ExternalizedMapping">
@@ -106,6 +106,13 @@
                   <Minimum>100</Minimum>
                   <Maximum>1000000</Maximum>
                 </Parameter>
+                <Parameter>
+                  <Name>MinPulseMs</Name>
+                  <Value>20</Value>
+                  <Description>The shortest pulse width calibrated, in ms, set per rig on rig-control's Calibrations page: at Go every width of config\valve-calibration.yml is scaled so its smallest is this (the largest 5 times it), the pulses as written (ScaleWidths).</Description>
+                  <Minimum>5</Minimum>
+                  <Maximum>100</Maximum>
+                </Parameter>
               </Parameters>
               <Commands>
                 <Command>
@@ -119,6 +126,10 @@
                 <Command>
                   <Name>Snapshot</Name>
                   <Description>Saves the calibration camera's latest frame, full size, as calibration\images\&lt;text&gt;.jpg beside rig.yml: rig-control's Calibrations page reads the balance from it.</Description>
+                </Command>
+                <Command>
+                  <Name>Test</Name>
+                  <Description>Before Go, fires pulses to see a valve open at a width: the text is the width in ms, the pulses and the line, such as 20 10 DO1 (TestBurst). Not counted anywhere; ignored after Go.</Description>
                 </Command>
               </Commands>
             </Expression>
@@ -216,8 +227,8 @@
                   <Expression xsi:type="Combinator">
                     <Combinator xsi:type="rx:Zip" />
                   </Expression>
-                  <Expression xsi:type="MemberSelector">
-                    <Selector>Item2</Selector>
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="vc:ScaleWidths" />
                   </Expression>
                   <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:ManualBalance.bonsai">
                     <RequestSubjectName>BurstPulses</RequestSubjectName>
@@ -265,11 +276,17 @@
                       <rx:Count>1</rx:Count>
                     </Combinator>
                   </Expression>
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="orcl:ParameterValue">
+                      <orcl:Name>MinPulseMs</orcl:Name>
+                    </Combinator>
+                  </Expression>
                 </Nodes>
                 <Edges>
                   <Edge From="1" To="2" Label="Source1" />
                   <Edge From="2" To="3" Label="Source1" />
-                  <Edge From="4" To="6" Label="Source1" />
+                  <Edge From="4" To="20" Label="Source1" />
+                  <Edge From="20" To="6" Label="Source1" />
                   <Edge From="5" To="6" Label="Source2" />
                   <Edge From="6" To="7" Label="Source1" />
                   <Edge From="7" To="8" Label="Source1" />
@@ -334,8 +351,35 @@
                 <orcl:Name>CameraExposureUs</orcl:Name>
               </Combinator>
             </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>ControlEvents</Name>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="orcl:OnCommand">
+                <orcl:Name>Test</orcl:Name>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>ExperimentGo</Name>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:TakeUntil" />
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="vc:TestBurst">
+                <vc:InterPulseIntervalMs>80</vc:InterPulseIntervalMs>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="MulticastSubject">
+              <Name>TriggerCalibratedPulse</Name>
+            </Expression>
           </Nodes>
           <Edges>
+            <Edge From="18" To="19" Label="Source1" />
+            <Edge From="19" To="21" Label="Source1" />
+            <Edge From="20" To="21" Label="Source2" />
+            <Edge From="21" To="22" Label="Source1" />
+            <Edge From="22" To="23" Label="Source1" />
             <Edge From="0" To="1" Label="Source1" />
             <Edge From="2" To="3" Label="Source1" />
             <Edge From="5" To="6" Label="Source1" />
@@ -442,8 +486,8 @@
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="rx:Zip" />
             </Expression>
-            <Expression xsi:type="MemberSelector">
-              <Selector>Item2</Selector>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="vc:ScaleWidths" />
             </Expression>
             <Expression xsi:type="rx:SelectMany">
               <Name>RunCalibration</Name>
@@ -813,6 +857,11 @@
                 </Edges>
               </Workflow>
             </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="orcl:ParameterValue">
+                <orcl:Name>MinPulseMs</orcl:Name>
+              </Combinator>
+            </Expression>
           </Nodes>
           <Edges>
             <Edge From="0" To="1" Label="Source1" />
@@ -826,7 +875,8 @@
             <Edge From="5" To="9" Label="Source2" />
             <Edge From="9" To="10" Label="Source1" />
             <Edge From="10" To="11" Label="Source1" />
-            <Edge From="12" To="14" Label="Source1" />
+            <Edge From="12" To="30" Label="Source1" />
+            <Edge From="30" To="14" Label="Source1" />
             <Edge From="13" To="14" Label="Source2" />
             <Edge From="14" To="15" Label="Source1" />
             <Edge From="15" To="16" Label="Source1" />

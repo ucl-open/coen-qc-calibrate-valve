@@ -251,6 +251,86 @@ namespace CoenQcCalibrateValve
         }
     }
 
+    // A minimum width per rig (Pip, 12 Nov 2026: "set different min/max of calibration on different
+    // rigs"; "Max opening should be 5 x min, so all just scale"): the procedure's widths are written
+    // for a 20 ms minimum and scaled at Go to rig-control's MinPulseMs; the pulses stay as written.
+    [Combinator]
+    [Description("The procedure's widths scaled at Go so the smallest is MinPulseMs, each times MinPulseMs over the smallest written, rounded half away from zero; pulses, gaps and priming as written. Input: (MinPulseMs as text, the settings). In place, and idempotent, so every subscriber of the settings scales them alike.")]
+    [WorkflowElementCategory(ElementCategory.Transform)]
+    public class ScaleWidths
+    {
+        public const int Lowest = 5, Highest = 100;
+
+        public IObservable<DispenseCalibration> Process(IObservable<Tuple<string, DispenseCalibration>> source)
+        {
+            return source.Select(input => Scale(input.Item2, ParseMin(input.Item1)));
+        }
+
+        public static int ParseMin(string text)
+        {
+            int min;
+            if (!int.TryParse((text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out min) || min < Lowest || min > Highest)
+            {
+                throw new InvalidOperationException(string.Format(
+                    "MinPulseMs '{0}' is not a minimum width: give whole ms, {1} to {2}.", text, Lowest, Highest));
+            }
+            return min;
+        }
+
+        public static DispenseCalibration Scale(DispenseCalibration settings, int min)
+        {
+            var samples = settings.Procedure.Samples;
+            int smallest = samples.Min(sample => sample.Size);
+            foreach (var sample in samples)
+            {
+                sample.Size = (int)Math.Round((double)(sample.Size * min) / smallest, MidpointRounding.AwayFromZero);
+            }
+            return settings;
+        }
+    }
+
+    // Testing a width before Start (Pip, 12 Nov 2026: "test the min opening time in the calibration
+    // window before starting (and then can edit)"): pulses on TriggerCalibratedPulse alone, never on
+    // BurstPulses, so ManualBalance does not count them.
+    [Combinator]
+    [Description("Each Test command fired as pulses: its text is the width in ms, the pulses and the line, such as '20 10 DO1'. One test at a time, in the order sent.")]
+    [WorkflowElementCategory(ElementCategory.Transform)]
+    public class TestBurst
+    {
+        int interPulseIntervalMs = 80;
+
+        [Description("The gap after each pulse, in ms: 80, as the procedure's.")]
+        public int InterPulseIntervalMs
+        {
+            get { return interPulseIntervalMs; }
+            set { interPulseIntervalMs = value; }
+        }
+
+        public IObservable<Tuple<int, int>> Process(IObservable<string> source)
+        {
+            return source.Select(text =>
+            {
+                var test = Parse(text);
+                return PulseBurst.Burst(test.Item3, test.Item1, test.Item2, InterPulseIntervalMs);
+            }).Concat();
+        }
+
+        /// <summary>A Test command's (width ms, pulses, line).</summary>
+        public static Tuple<int, int, int> Parse(string text)
+        {
+            var parts = (text ?? "").Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+            int width, pulses;
+            if (parts.Length != 3
+                || !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out width) || width < 1 || width > 5 * ScaleWidths.Highest
+                || !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out pulses) || pulses < 1 || pulses > 100)
+            {
+                throw new InvalidOperationException(string.Format(
+                    "Test '{0}' is not a test: give the width in ms (1 to {1}), the pulses (1 to 100) and the line, such as 20 10 DO1.", text, 5 * ScaleWidths.Highest));
+            }
+            return Tuple.Create(width, pulses, Valves.Parse(parts[2], 1)[0]);
+        }
+    }
+
     [Combinator]
     [Description("The valves of the expanded procedure as the run's target says them, such as DO1, DO2.")]
     [WorkflowElementCategory(ElementCategory.Transform)]

@@ -94,5 +94,40 @@ Check "a sample's drip: its width on its valve ($($pulses -join ' '))" ((@($puls
 $pulses = Items ([Tuple[int, int]]) ((New-Object CoenQcCalibrateValve.DripBurst).Process((Obs ([string]) '1 DO2'), (Obs ([OpenRigs.Core.Calibration.DispenseProcedure]) $all)))
 Check "the baseline's drip: the largest width on the line named ($($pulses -join ' '))" ((@($pulses | ForEach-Object { "$($_.Item2)@$($_.Item1)" }) -join ' ') -eq '40@2')
 
+# A minimum per rig (Pip, 12 Nov 2026): the widths scaled so the smallest is MinPulseMs, pulses as written.
+function New-Ladder {
+    $settings = New-Settings
+    $settings.Procedure.Samples.Clear()
+    foreach ($s in @(@(40, 300), @(20, 600), @(25, 480), @(100, 120), @(30, 400), @(70, 171), @(50, 240))) {
+        $sample = New-Object OpenRigs.Core.Calibration.DispenseSample
+        $sample.Size = $s[0]; $sample.Repeats = $s[1]; $sample.InterPulseIntervalMs = 80
+        $settings.Procedure.Samples.Add($sample)
+    }
+    $settings
+}
+$scale = [CoenQcCalibrateValve.ScaleWidths]
+$scaled = $scale::Scale((New-Ladder), 30).Procedure.Samples
+Check "min 30: widths 30 to 150 ($(@($scaled | ForEach-Object { $_.Size }) -join ','))" ((@($scaled | ForEach-Object { $_.Size }) -join ',') -eq '60,30,38,150,45,105,75')
+Check 'min 30: pulses as written' ((@($scaled | ForEach-Object { $_.Repeats }) -join ',') -eq '300,600,480,120,400,171,240')
+$twice = $scale::Scale($scale::Scale((New-Ladder), 15), 15).Procedure.Samples
+Check "min 15: scaling twice is scaling once ($(@($twice | ForEach-Object { $_.Size }) -join ','))" ((@($twice | ForEach-Object { $_.Size }) -join ',') -eq '30,15,19,75,23,53,38')
+Check 'min 20: the procedure as written' ((@($scale::Scale((New-Ladder), 20).Procedure.Samples | ForEach-Object { $_.Size }) -join ',') -eq '40,20,25,100,30,70,50')
+foreach ($bad in '', '4', '101', '12.5', 'twenty') {
+    $threw = $false
+    try { $null = $scale::ParseMin($bad) } catch { $threw = $true }
+    Check "MinPulseMs '$bad' refused" $threw
+}
+
+# Test (Pip, 12 Nov 2026): a width tested before Start, on the line named.
+$test = [CoenQcCalibrateValve.TestBurst]::Parse('25 10 DO2')
+Check "Test '25 10 DO2' is 10 pulses of 25 ms on line 2" (($test.Item1 -eq 25) -and ($test.Item2 -eq 10) -and ($test.Item3 -eq 2))
+foreach ($bad in '', '25 10', '0 10 DO1', '25 0 DO1', '25 101 DO1', '501 10 DO1', '25 10 DO4') {
+    $threw = $false
+    try { $null = [CoenQcCalibrateValve.TestBurst]::Parse($bad) } catch { $threw = $true }
+    Check "Test '$bad' refused" $threw
+}
+$pulses = Items ([Tuple[int, int]]) ((New-Object CoenQcCalibrateValve.TestBurst).Process((Obs ([string]) '25 3 DO1')))
+Check "a test: its width on its line ($($pulses -join ' '))" ((@($pulses | ForEach-Object { "$($_.Item2)@$($_.Item1)" }) -join ' ') -eq '25@1 25@1 25@1')
+
 if ($failed) { "test-interleave: $failed failed."; exit 1 }
 'test-interleave: all passed.'
