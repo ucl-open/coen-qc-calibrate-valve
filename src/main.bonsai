@@ -985,7 +985,7 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Spouts</Name>
-        <Description>The spouts forward for the calibration (Pip, 10 Nov 2026), so each valve's drops land as in a session: on a rig with a lick spout stage (StepperDriver1PortName given), Stage zeroes it and moves it to a mouse's in-position before Ready, and takes the spouts back once the last weighing has passed; on one without, SpoutsReady at once. Last in the workflow, after the Calibration group whose CalibrationWeights it watches.</Description>
+        <Description>The spouts forward for the calibration (Pip, 10 Nov 2026), so each valve's drops land as in a session: on a rig with a lick spout stage (StepperDriver1PortName given), Stage zeroes it, moves it to a mouse's in-position and the in/out motors fully forward before Ready, and back to the in-position once the last weighing has passed; on one without, SpoutsReady at once and nothing moves. Last in the workflow, after the Calibration group whose CalibrationWeights it watches.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
@@ -1075,7 +1075,7 @@
             </Expression>
             <Expression xsi:type="rx:SelectMany">
               <Name>Stage</Name>
-              <Description>The lick spout stage, only on a rig whose rig.yml has one. Both StepperDriver boards on their ports, set up as av-dome sets them (InitialiseStepperDriverSettings, ReadSwitchStates: copied from av-dome's StepperDriver group, 10 Nov 2026), every motor zeroed on its home switch (ZEROMotors), then moved to the in-position (SpoutMotor1Position to SpoutMotor5Position, a mouse's saved positions), and SpoutsReady once the longest move has had its time. Once the last weighing has passed (CalibrationWeights ends), the spouts go back 1500 steps (motors 2 to 5, av-dome's both-out) and the base (motor 1) stays: a Stop moves nothing.</Description>
+              <Description>The lick spout stage, only on a rig whose rig.yml has one. Both StepperDriver boards on their ports, set up as av-dome sets them (InitialiseStepperDriverSettings, ReadSwitchStates: copied from av-dome's StepperDriver group, 10 Nov 2026), every motor zeroed on its home switch (ZEROMotors), then moved to the in-position (SpoutMotor1Position to SpoutMotor5Position, a mouse's saved positions), then both in/out motors (motors 2 and 3, rig.yml's Radial left and right) fully forward to 8000 steps, the rest held (Pip, 12 Nov 2026: a fixed number until the travel is measured, BACKLOG), and SpoutsReady 3 s later (8000 steps at 280 us, plus 0.5 s). Once the last weighing has passed (CalibrationWeights ends), every motor goes back to the in-position: a Stop moves nothing.</Description>
               <Workflow>
                 <Nodes>
                   <Expression xsi:type="WorkflowInput">
@@ -1905,10 +1905,31 @@
                     <Selector>Item2</Selector>
                   </Expression>
                   <Expression xsi:type="scr:ExpressionTransform">
-                    <scr:Expression>new(it.Item1 as Item1, it.Item2 - 1500 as Item2, it.Item3 - 1500 as Item3, it.Item4 - 1500 as Item4, it.Item5 - 1500 as Item5)</scr:Expression>
+                    <scr:Expression>new(it.Item1 as Item1, it.Item2 as Item2, it.Item3 as Item3, it.Item4 as Item4, it.Item5 as Item5)</scr:Expression>
                   </Expression>
                   <Expression xsi:type="IncludeWorkflow" Path="Extensions\MoveStepperMotors.bonsai" />
                   <Expression xsi:type="WorkflowOutput" />
+                  <Expression xsi:type="SubscribeSubject">
+                    <Name>StageSettings</Name>
+                  </Expression>
+                  <Expression xsi:type="MemberSelector">
+                    <Selector>Item3</Selector>
+                  </Expression>
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="rx:WithLatestFrom" />
+                  </Expression>
+                  <Expression xsi:type="MemberSelector">
+                    <Selector>Item2</Selector>
+                  </Expression>
+                  <Expression xsi:type="scr:ExpressionTransform">
+                    <scr:Expression>new(it.Item1 as Item1, 8000 as Item2, 8000 as Item3, it.Item4 as Item4, it.Item5 as Item5)</scr:Expression>
+                  </Expression>
+                  <Expression xsi:type="IncludeWorkflow" Path="Extensions\MoveStepperMotors.bonsai" />
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="rx:Delay">
+                      <rx:DueTime>PT3S</rx:DueTime>
+                    </Combinator>
+                  </Expression>
                 </Nodes>
                 <Edges>
                   <Edge From="0" To="1" Label="Source1" />
@@ -1929,7 +1950,14 @@
                   <Edge From="22" To="23" Label="Source1" />
                   <Edge From="22" To="24" Label="Source1" />
                   <Edge From="24" To="25" Label="Source1" />
-                  <Edge From="25" To="26" Label="Source1" />
+                  <Edge From="25" To="39" Label="Source1" />
+                  <Edge From="37" To="38" Label="Source1" />
+                  <Edge From="38" To="39" Label="Source2" />
+                  <Edge From="39" To="40" Label="Source1" />
+                  <Edge From="40" To="41" Label="Source1" />
+                  <Edge From="41" To="42" Label="Source1" />
+                  <Edge From="41" To="43" Label="Source1" />
+                  <Edge From="43" To="26" Label="Source1" />
                   <Edge From="26" To="27" Label="Source1" />
                   <Edge From="27" To="36" Label="Source1" />
                   <Edge From="28" To="29" Label="Source1" />
