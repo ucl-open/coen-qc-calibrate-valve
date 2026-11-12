@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <WorkflowBuilder Version="2.9.0"
                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                  xmlns:rx="clr-namespace:Bonsai.Reactive;assembly=Bonsai.Core"
@@ -1075,7 +1075,7 @@
             </Expression>
             <Expression xsi:type="rx:SelectMany">
               <Name>Stage</Name>
-              <Description>The lick spout stage, only on a rig whose rig.yml has one. Both StepperDriver boards on their ports, set up as av-dome sets them (InitialiseStepperDriverSettings, ReadSwitchStates: copied from av-dome's StepperDriver group, 10 Nov 2026), every motor zeroed on its home switch (ZEROMotors), then moved to the in-position (SpoutMotor1Position to SpoutMotor5Position, a mouse's saved positions), then both in/out motors (motors 2 and 3, rig.yml's Radial left and right) fully forward to 8000 steps, the rest held (Pip, 12 Nov 2026: a fixed number until the travel is measured, BACKLOG), and SpoutsReady 3 s later (8000 steps at 280 us, plus 0.5 s). Once the last weighing has passed (CalibrationWeights ends), every motor goes back to the in-position: a Stop moves nothing.</Description>
+              <Description>The lick spout stage, only on a rig whose rig.yml has one. Both StepperDriver boards on their ports, set up as av-dome sets them (InitialiseStepperDriverSettings, ReadSwitchStates: copied from av-dome's StepperDriver group, 10 Nov 2026), every motor zeroed on its home switch (ZEROMotors), then moved to the in-position (SpoutMotor1Position to SpoutMotor5Position, a mouse's saved positions), then both in/out motors (motors 2 and 3, rig.yml's Radial left and right) fully forward to 15000 steps, the rest held (Pip, 12 Nov 2026: a fixed number until the travel is measured, BACKLOG), and SpoutsReady 5 s later (15000 steps at 280 us, plus 0.5 s). Once the last weighing has passed (CalibrationWeights ends), every motor goes back to the in-position: a Stop moves nothing.</Description>
               <Workflow>
                 <Nodes>
                   <Expression xsi:type="WorkflowInput">
@@ -1922,12 +1922,12 @@
                     <Selector>Item2</Selector>
                   </Expression>
                   <Expression xsi:type="scr:ExpressionTransform">
-                    <scr:Expression>new(it.Item1 as Item1, 8000 as Item2, 8000 as Item3, it.Item4 as Item4, it.Item5 as Item5)</scr:Expression>
+                    <scr:Expression>new(it.Item1 as Item1, 15000 as Item2, 15000 as Item3, it.Item4 as Item4, it.Item5 as Item5)</scr:Expression>
                   </Expression>
                   <Expression xsi:type="IncludeWorkflow" Path="Extensions\MoveStepperMotors.bonsai" />
                   <Expression xsi:type="Combinator">
                     <Combinator xsi:type="rx:Delay">
-                      <rx:DueTime>PT3S</rx:DueTime>
+                      <rx:DueTime>PT5S</rx:DueTime>
                     </Combinator>
                   </Expression>
                 </Nodes>
