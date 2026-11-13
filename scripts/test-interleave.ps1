@@ -27,6 +27,7 @@ Check 'arena: two valves, no stage' (((@($arena.Valves) -join ',') -eq '1,2') -a
 $dome = [CoenQcCalibrateValve.ValveRig]::Read((Join-Path $rigs 'dome.yml'))
 Check 'dome: two valves, not the Zapit line' (((@($dome.Valves) -join ',') -eq '1,2') -and ("$($dome.OutputPulseEnable)" -eq 'DO1, DO2'))
 Check 'dome: the stage on StepperDriver-A and -B' ($dome.HasStage -and $dome.StepperDriverA.Name -eq 'StepperDriver-A' -and $dome.StepperDriverA.Settings.PortName -eq 'COM5' -and $dome.StepperDriverB.Settings.PortName -eq 'COM6')
+Check 'dome: the stage takes rig.yml''s default position (no positions file)' (-not (Test-Path $dome.PositionsFile) -and $dome.PositionsFile.StartsWith($rigs))
 Check 'a valve wiring does not give is refused' (Refused { $arena.Check([int[]]@(3)) })
 Check 'a wired valve passes' (-not (Refused { $dome.Check([int[]]@(2, 1)) }))
 

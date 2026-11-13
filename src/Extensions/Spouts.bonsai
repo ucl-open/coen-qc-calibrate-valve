@@ -5,7 +5,7 @@
                  xmlns:dev="clr-namespace:OpenRigs.Devices;assembly=OpenRigs.Devices"
                  xmlns:vc="clr-namespace:CoenQcCalibrateValve;assembly=Extensions"
                  xmlns="https://bonsai-rx.org/2018/workflow">
-  <Description>The spouts during a calibration or a delivery, so the drops land as in a session (Pip, 10 Nov 2026). On a rig whose rig.yml has a lick spout stage (ValveRig's HasStage: stepperDriver a and b), Stage runs OpenRigs.Devices HarpLickSpoutStage on StepperDriver-A and -B: it homes every motor and moves the spouts to the in position from PositionsFile (rig.yml's lickSpoutDefaultPosition when that file is not there); once that move has had its time, both radial (in/out) axes go to SpoutsForwardSteps from home (0: they stay in), and SpoutsReady once that move has had its time too. Once the DoneSubjectName subject ends, DoneCommand moves the stage. On a rig without a stage, SpoutsReady at once and nothing moves. Needs the ValveRig and SpoutsReady subjects.</Description>
+  <Description>The spouts during a calibration or a delivery, so the drops land as in a session (Pip, 10 Nov 2026). On a rig whose rig.yml has a lick spout stage (ValveRig's HasStage: stepperDriver a and b), Stage runs OpenRigs.Devices HarpLickSpoutStage on StepperDriver-A and -B: it homes every motor and moves the spouts to rig.yml's lickSpoutDefaultPosition (ValveRig's PositionsFile is never a file, since a calibration is no mouse's); once that move has had its time, both radial (in/out) axes go to SpoutsForwardSteps from home (0: they stay in), and SpoutsReady once that move has had its time too. Once the DoneSubjectName subject ends, DoneCommand moves the stage. On a rig without a stage, SpoutsReady at once and nothing moves. Needs the ValveRig and SpoutsReady subjects.</Description>
   <Workflow>
     <Nodes>
       <Expression xsi:type="SubscribeSubject">
@@ -30,7 +30,6 @@
         </Workflow>
       </Expression>
       <Expression xsi:type="ExternalizedMapping">
-        <Property Name="PositionsFile" />
         <Property Name="SpoutsForwardSteps" />
         <Property Name="DoneSubjectName" />
         <Property Name="DoneCommand" />
@@ -54,20 +53,15 @@
             <Expression xsi:type="rx:AsyncSubject">
               <Name>StepperDriver-B</Name>
             </Expression>
-            <Expression xsi:type="MemberSelector">
-              <Selector>RigFile</Selector>
-            </Expression>
             <Expression xsi:type="PropertyMapping">
               <PropertyMappings>
-                <Property Name="RigFile" />
+                <Property Name="RigFile" Selector="RigFile" />
+                <Property Name="PositionsFile" Selector="PositionsFile" />
               </PropertyMappings>
-            </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="PositionsFile" />
             </Expression>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:HarpLickSpoutStage.bonsai">
               <RigFile>UNMAPPED</RigFile>
-              <PositionsFile />
+              <PositionsFile>UNMAPPED</PositionsFile>
               <StepSize>150</StepSize>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
@@ -134,22 +128,20 @@
             <Edge From="3" To="4" Label="Source1" />
             <Edge From="0" To="5" Label="Source1" />
             <Edge From="5" To="6" Label="Source1" />
-            <Edge From="6" To="8" Label="Source1" />
-            <Edge From="7" To="8" Label="Source2" />
-            <Edge From="9" To="10" Label="Source1" />
-            <Edge From="10" To="11" Label="Source1" />
-            <Edge From="11" To="13" Label="Source1" />
-            <Edge From="12" To="13" Label="Source2" />
+            <Edge From="7" To="8" Label="Source1" />
+            <Edge From="8" To="9" Label="Source1" />
+            <Edge From="9" To="11" Label="Source1" />
+            <Edge From="10" To="11" Label="Source2" />
+            <Edge From="11" To="12" Label="Source1" />
+            <Edge From="12" To="13" Label="Source1" />
             <Edge From="13" To="14" Label="Source1" />
             <Edge From="14" To="15" Label="Source1" />
-            <Edge From="15" To="16" Label="Source1" />
             <Edge From="16" To="17" Label="Source1" />
-            <Edge From="18" To="19" Label="Source1" />
-            <Edge From="19" To="20" Label="Source1" />
-            <Edge From="20" To="22" Label="Source1" />
-            <Edge From="21" To="22" Label="Source2" />
-            <Edge From="22" To="23" Label="Source1" />
-            <Edge From="23" To="24" Label="Source1" />
+            <Edge From="17" To="18" Label="Source1" />
+            <Edge From="18" To="20" Label="Source1" />
+            <Edge From="19" To="20" Label="Source2" />
+            <Edge From="20" To="21" Label="Source1" />
+            <Edge From="21" To="22" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>

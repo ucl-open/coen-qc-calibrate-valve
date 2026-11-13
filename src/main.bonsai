@@ -15,7 +15,7 @@
                  xmlns:harp="clr-namespace:Bonsai.Harp;assembly=Bonsai.Harp"
                  xmlns:beh="clr-namespace:Harp.Behavior;assembly=Harp.Behavior"
                  xmlns="https://bonsai-rx.org/2018/workflow">
-  <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines (Channel or Channels) and FileName; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml (ReadValveRig), and every burst is fired on the board's Harp clock at the procedure's one pulseGapMs (OpenRigs.Core FirePulses). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its repeats. The procedure (pulse widths, repeats) is config\valve-calibration.yml, its widths scaled at Go so the smallest is the MinPulseMs parameter (ScaleWidths); before Go, Test commands fire a few pulses at a width so a valve's opening can be seen (TestTrain). On a rig whose rig.yml has a lick spout stage, OpenRigs.Devices HarpLickSpoutStage homes it and moves the spouts to the in position from PositionsFile, then both in/out axes fully forward, before Ready, and back to the in position once the last burst is weighed (Extensions\Spouts.bonsai). Ready once the board answers and the spouts are in; Go runs the procedure; Finished once every burst is weighed.</Description>
+  <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines (Channel or Channels) and FileName; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml (ReadValveRig), and every burst is fired on the board's Harp clock at the procedure's one pulseGapMs (OpenRigs.Core FirePulses). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its repeats. The procedure (pulse widths, repeats) is config\valve-calibration.yml, its widths scaled at Go so the smallest is the MinPulseMs parameter (ScaleWidths); before Go, Test commands fire a few pulses at a width so a valve's opening can be seen (TestTrain). On a rig whose rig.yml has a lick spout stage, OpenRigs.Devices HarpLickSpoutStage homes it and moves the spouts to rig.yml's lickSpoutDefaultPosition, then both in/out axes fully forward, before Ready, and back to the in position once the last burst is weighed (Extensions\Spouts.bonsai). Ready once the board answers and the spouts are in; Go runs the procedure; Finished once every burst is weighed.</Description>
   <Workflow>
     <Nodes>
       <Expression xsi:type="ExternalizedMapping">
@@ -1114,11 +1114,7 @@
           </Edges>
         </Workflow>
       </Expression>
-      <Expression xsi:type="ExternalizedMapping">
-        <Property Name="PositionsFile" DisplayName="PositionsFile" Description="On a rig with a lick spout stage, the positions file whose in position the spouts go to: rig-control gives the newest mouse's calibration\LickSpoutPositions\&lt;mouse&gt;.csv beside rig.yml (one line, baseTransverse,leftRadial,rightRadial,leftElevation,rightElevation); a path with no file there takes rig.yml's lickSpoutDefaultPosition. Required on a rig with a stage, unused on one without." />
-      </Expression>
       <Expression xsi:type="IncludeWorkflow" Path="Extensions\Spouts.bonsai">
-        <PositionsFile />
         <SpoutsForwardSteps>15000</SpoutsForwardSteps>
         <DoneSubjectName>CalibrationWeights</DoneSubjectName>
         <DoneCommand>SpoutsIn</DoneCommand>
@@ -1135,7 +1131,6 @@
       <Edge From="0" To="1" Label="Source1" />
       <Edge From="2" To="3" Label="Source1" />
       <Edge From="5" To="6" Label="Source1" />
-      <Edge From="8" To="9" Label="Source1" />
     </Edges>
   </Workflow>
 </WorkflowBuilder>

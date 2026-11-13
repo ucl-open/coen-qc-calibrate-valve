@@ -1,6 +1,6 @@
 # An arena's rig.yml as the valve calibration reads it: a behavior board with two reward valves
-# and no lick spout stage. Written from the plan (13 Nov 2026), not copied from a rig: no arena
-# rig.yml was on the share then.
+# and no lick spout stage. Made up from the plan (13 Nov 2026): no arena rig exists yet, so
+# replace it with the first real arena's rig.yml.
 behaviorBoard:
   main:
     portName: COM4

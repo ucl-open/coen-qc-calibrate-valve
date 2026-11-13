@@ -50,6 +50,13 @@ namespace CoenQcCalibrateValve
             }
         }
 
+        /// <summary>The positions file HarpLickSpoutStage is given: a path no mouse's file has, so the
+        /// stage takes rig.yml's lickSpoutDefaultPosition (a valve calibration is not a mouse's; Pip, 13 Nov 2026).</summary>
+        public string PositionsFile
+        {
+            get { return Path.Combine(Path.GetDirectoryName(RigFile), @"calibration\LickSpoutPositions\_valve-calibration_.csv"); }
+        }
+
         /// <summary>Whether rig.yml has a lick spout stage (stepperDriver: a: and b:).</summary>
         public bool HasStage { get; set; }
 

@@ -8,7 +8,7 @@
                  xmlns:vc="clr-namespace:CoenQcCalibrateValve;assembly=Extensions"
                  xmlns:sys="clr-namespace:System;assembly=mscorlib"
                  xmlns="https://bonsai-rx.org/2018/workflow">
-  <Description>Delivers water on one valve at a reward's pulse width (Pip, 11 Nov 2026), so a valve's calibration can be checked by weighing what it gives: Pulses pulses of SizeMs on Channel at PulseGapMs, fired on the board's Harp clock as the calibration fires them (OpenRigs.Core FirePulses). rig-control's Calibrations page works out the width and the pulses from the valve's curve (1 ml at the reward size) and gives the curve's pulseGapMs; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml (ReadValveRig). On a rig with a lick spout stage the spouts go to the in position from PositionsFile first and out after (Extensions\Spouts.bonsai). Ready once the board answers and the spouts are in; Go fires the pulses, reporting each as the delivered metric; Finished once the last has closed. Nothing is written.</Description>
+  <Description>Delivers water on one valve at a reward's pulse width (Pip, 11 Nov 2026), so a valve's calibration can be checked by weighing what it gives: Pulses pulses of SizeMs on Channel at PulseGapMs, fired on the board's Harp clock as the calibration fires them (OpenRigs.Core FirePulses). rig-control's Calibrations page works out the width and the pulses from the valve's curve (1 ml at the reward size) and gives the curve's pulseGapMs; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml (ReadValveRig). On a rig with a lick spout stage the spouts go to rig.yml's lickSpoutDefaultPosition first and out after (Extensions\Spouts.bonsai). Ready once the board answers and the spouts are in; Go fires the pulses, reporting each as the delivered metric; Finished once the last has closed. Nothing is written.</Description>
   <Workflow>
     <Nodes>
       <Expression xsi:type="ExternalizedMapping">
@@ -270,11 +270,7 @@
           </Edges>
         </Workflow>
       </Expression>
-      <Expression xsi:type="ExternalizedMapping">
-        <Property Name="PositionsFile" DisplayName="PositionsFile" Description="On a rig with a lick spout stage, the positions file whose in position the spouts go to: rig-control gives the newest mouse's calibration\LickSpoutPositions\&lt;mouse&gt;.csv beside rig.yml; a path with no file there takes rig.yml's lickSpoutDefaultPosition. Required on a rig with a stage, unused on one without." />
-      </Expression>
       <Expression xsi:type="IncludeWorkflow" Path="Extensions\Spouts.bonsai">
-        <PositionsFile />
         <SpoutsForwardSteps>0</SpoutsForwardSteps>
         <DoneSubjectName>Delivered</DoneSubjectName>
         <DoneCommand>SpoutsOut</DoneCommand>
@@ -284,7 +280,6 @@
       <Edge From="0" To="1" Label="Source1" />
       <Edge From="2" To="3" Label="Source1" />
       <Edge From="5" To="6" Label="Source1" />
-      <Edge From="7" To="8" Label="Source1" />
     </Edges>
   </Workflow>
 </WorkflowBuilder>
