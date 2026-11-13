@@ -20,7 +20,7 @@ Run it from rig-control's Calibrations page, the only place it is offered: it is
 
 Pip, 7 Nov 2026: "an option to calibrate all valves (interleave left and right for each burst, obviously double number of calibrations) or each individual valve". With `Channels` set, `InterleaveValves` (`src\Extensions\ValveInterleave.cs`) expands the procedure once, at load: each sample once per valve, in turn (DO1's 40 ms burst, weighed, DO2's 40 ms burst, weighed, then the next width), and the priming pulses once per valve. Every spout delivers into the one container on the one balance, and each burst is weighed by difference before the next fires, so each valve's gain is its own. `ManualBalance`, `RunCalibration` and the weights file all follow the expanded procedure, so the prompts count every valve's bursts (`sample 3 of 42`) and the page knows burst n is valve (n - 1) mod the number of valves. `ValveTrains` turns each burst into a pulse train on its sample's valve for `FirePulses`, and `ValveWeighingRow` writes its `channel`. One valve (`Channels` empty) gives the procedure as written.
 
-`scripts\test-interleave.ps1` checks the expansion against the compiled extension, after lib-open-rigs' `check-workflow-builds.ps1` has built it.
+`scripts\test-interleave.ps1` checks the expansion against the compiled extension, after lib-open-rigs' `check-workflow-builds.ps1` has built it. `uv run pytest` checks `config\valve-calibration.yml` against lib-open-rigs' `DispenseCalibration` (no key the workflow would refuse, one `pulseGapMs`, widths 20 to 100 ms in equal rounds) and that each `tests\rigs` file wires its reward valves on DO1 to DO3.
 
 ## The Balance, Read by Eye
 
