@@ -1,5 +1,4 @@
 using Bonsai;
-using OpenRigs.Core;
 using OpenRigs.Core.Calibration;
 using System;
 using System.Collections.Generic;
@@ -15,7 +14,9 @@ using System.Reactive.Linq;
 //
 // The procedure is expanded once, at load, so everything that follows the bursts (OpenRigs.Devices
 // ManualBalance, which counts the pulses fired; RunCalibration; the weights file) sees one sample per
-// valve per burst, in the order they fire. Compiled by Bonsai under C# 5.
+// valve per burst, in the order they fire. Every burst is a PulseTrain for OpenRigs.Core FirePulses,
+// which fires it on the Harp clock at the procedure's one pulseGapMs, the gap a rig then fires its
+// rewards at (plan v11). Compiled by Bonsai under C# 5.
 namespace CoenQcCalibrateValve
 {
     /// <summary>A sample of the expanded procedure: the procedure's own, on one valve.</summary>
@@ -28,6 +29,21 @@ namespace CoenQcCalibrateValve
         {
             get { return channel; }
             set { channel = value; }
+        }
+    }
+
+    /// <summary>One train of pulses, mapped onto OpenRigs.Core FirePulses' properties (InputMapping).</summary>
+    public class PulseTrain
+    {
+        public int Line { get; set; }
+        public int WidthMs { get; set; }
+        public int Count { get; set; }
+        public int PulseGapMs { get; set; }
+
+        public static PulseTrain Of(DispenseSample sample, int line, int count)
+        {
+            var valve = sample as ValveSample;
+            return new PulseTrain { Line = valve != null ? valve.Channel : line, WidthMs = sample.Size, Count = count, PulseGapMs = sample.PulseGapMs };
         }
     }
 
@@ -70,10 +86,24 @@ namespace CoenQcCalibrateValve
             }
             return found.ToArray();
         }
+
+        /// <summary>The procedure's one pulseGapMs; refuses samples at different gaps, since the
+        /// calibration file records one and a rig fires every reward at it.</summary>
+        public static int Gap(DispenseProcedure procedure)
+        {
+            var gaps = procedure.Samples.Select(sample => sample.PulseGapMs).Distinct().OrderBy(gap => gap).ToArray();
+            if (gaps.Length != 1)
+            {
+                throw new InvalidOperationException(string.Format(
+                    "config\\valve-calibration.yml's samples are fired at {0} gaps ({1} ms); give every sample one pulseGapMs, the gap a rig fires its rewards at.",
+                    gaps.Length, string.Join(", ", gaps.Select(gap => gap.ToString(CultureInfo.InvariantCulture)).ToArray())));
+            }
+            return gaps[0];
+        }
     }
 
     [Combinator]
-    [Description("Expands the valve calibration's procedure over the valves to calibrate: each round (each width's first sample, then each width's second, ...) in a new random order every run, each sample once per valve, in turn (DO1's burst, weighed, then DO2's, weighed, and so on), and the priming pulses once per valve. Channels lists the valves (such as 1, 2, or DO1, DO2); empty, the one Channel.")]
+    [Description("Expands the valve calibration's procedure over the valves to calibrate: each round (each width's first sample, then each width's second, ...) in a new random order every run, each sample once per valve, in turn (DO1's burst, weighed, then DO2's, weighed, and so on), and the priming pulses once per valve. Channels lists the valves (such as 1, 2, or DO1, DO2); empty, the one Channel. Input: (the settings, rig.yml's valves); stops the workflow if a valve is not a RewardValve in rig.yml's wiring or the samples are at different pulseGapMs.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
     public class InterleaveValves
     {
@@ -94,9 +124,14 @@ namespace CoenQcCalibrateValve
             set { channels = value; }
         }
 
-        public IObservable<DispenseCalibration> Process(IObservable<DispenseCalibration> source)
+        public IObservable<DispenseCalibration> Process(IObservable<Tuple<DispenseCalibration, ValveRig>> source)
         {
-            return source.Select(settings => Expand(settings, Valves.Parse(Channels, Channel), new Random()));
+            return source.Select(input =>
+            {
+                var valves = Valves.Parse(Channels, Channel);
+                input.Item2.Check(valves);
+                return Expand(input.Item1, valves, new Random());
+            });
         }
 
         /// <summary>The settings with each sample once per valve, in turn, and the priming pulses once per valve.
@@ -110,6 +145,7 @@ namespace CoenQcCalibrateValve
             {
                 throw new InvalidOperationException("The valve calibration's procedure has no samples.");
             }
+            Valves.Gap(procedure);
             var expanded = new List<DispenseSample>();
             foreach (var sample in random == null ? procedure.Samples : Shuffled(procedure.Samples, random))
             {
@@ -119,7 +155,7 @@ namespace CoenQcCalibrateValve
                     {
                         Size = sample.Size,
                         Repeats = sample.Repeats,
-                        InterPulseIntervalMs = sample.InterPulseIntervalMs,
+                        PulseGapMs = sample.PulseGapMs,
                         Channel = valve
                     });
                 }
@@ -158,9 +194,9 @@ namespace CoenQcCalibrateValve
     }
 
     [Combinator]
-    [Description("Fires a burst of (channel, size) pulse requests, as OpenRigs.Core PulseBurst does, on the valve the sample names (an expanded procedure's sample; any other on Channel). Fed the procedure, it fires the priming burst: an equal share of the priming pulses on each valve in turn.")]
+    [Description("Each sample as its burst: its pulses at its width on its valve (an expanded procedure's sample; any other on Channel), at its pulseGapMs. Fed the procedure, the priming bursts: an equal share of the priming pulses on each valve in turn, at the priming size and the procedure's pulseGapMs.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
-    public class ValvePulseBurst
+    public class ValveTrains
     {
         int channel = 1;
 
@@ -171,30 +207,28 @@ namespace CoenQcCalibrateValve
             set { channel = value; }
         }
 
-        public IObservable<Tuple<int, int>> Process(IObservable<DispenseSample> source)
+        public IObservable<PulseTrain> Process(IObservable<DispenseSample> source)
         {
-            return source.SelectMany(sample =>
-            {
-                var valve = sample as ValveSample;
-                return PulseBurst.Burst(valve != null ? valve.Channel : Channel, sample.Size, sample.Repeats, sample.InterPulseIntervalMs);
-            });
+            return source.Select(sample => PulseTrain.Of(sample, Channel, sample.Repeats));
         }
 
-        public IObservable<Tuple<int, int>> Process(IObservable<DispenseProcedure> source)
+        public IObservable<PulseTrain> Process(IObservable<DispenseProcedure> source)
         {
-            return source.SelectMany(procedure =>
+            return source.SelectMany(procedure => Priming(procedure, Channel));
+        }
+
+        public static PulseTrain[] Priming(DispenseProcedure procedure, int channel)
+        {
+            if (procedure.Samples == null || procedure.Samples.Count == 0)
             {
-                if (procedure.Samples == null || procedure.Samples.Count == 0)
-                {
-                    throw new InvalidOperationException("The dispense procedure has no samples to take the priming size from.");
-                }
-                var valves = Valves.Of(procedure);
-                if (valves.Length == 0) valves = new[] { Channel };
-                int size = procedure.PrimingSize ?? procedure.Samples.Max(sample => sample.Size);
-                int interval = procedure.Samples.Max(sample => sample.InterPulseIntervalMs);
-                int each = procedure.PrimingPulses / valves.Length;
-                return valves.Select(valve => PulseBurst.Burst(valve, size, each, interval)).Concat();
-            });
+                throw new InvalidOperationException("The dispense procedure has no samples to take the priming size from.");
+            }
+            var valves = Valves.Of(procedure);
+            if (valves.Length == 0) valves = new[] { channel };
+            int size = procedure.PrimingSize ?? procedure.Samples.Max(sample => sample.Size);
+            int gap = Valves.Gap(procedure);
+            int each = procedure.PrimingPulses / valves.Length;
+            return valves.Select(valve => new PulseTrain { Line = valve, WidthMs = size, Count = each, PulseGapMs = gap }).ToArray();
         }
     }
 
@@ -203,9 +237,9 @@ namespace CoenQcCalibrateValve
     // command at a time, until the balance's display moves, and only then reads it. A sample's drip
     // pulses are its own: they are added to its row's repeats.
     [Combinator]
-    [Description("Each Drip command fired as pulses: its text is the pulse count and, for the baseline, the line (such as '1 DO2'). With a sample (second input), at the sample's width on its valve; with the procedure, at its largest sample's width on the line named, else its first valve. One drip at a time, in the order sent.")]
+    [Description("Each Drip command as a burst: its text is the pulse count and, for the baseline, the line (such as '1 DO2'). With a sample (second input), at the sample's width on its valve; with the procedure, at its largest sample's width on the line named, else its first valve. At the procedure's pulseGapMs.")]
     [WorkflowElementCategory(ElementCategory.Combinator)]
-    public class DripBurst
+    public class DripTrains
     {
         int channel = 1;
 
@@ -216,24 +250,20 @@ namespace CoenQcCalibrateValve
             set { channel = value; }
         }
 
-        public IObservable<Tuple<int, int>> Process(IObservable<string> commands, IObservable<DispenseSample> sample)
+        public IObservable<PulseTrain> Process(IObservable<string> commands, IObservable<DispenseSample> sample)
         {
-            return sample.Take(1).SelectMany(s => commands.Select(text =>
-            {
-                var valve = s as ValveSample;
-                return PulseBurst.Burst(valve != null ? valve.Channel : Channel, s.Size, Parse(text).Item1, s.InterPulseIntervalMs);
-            }).Concat());
+            return sample.Take(1).SelectMany(s => commands.Select(text => PulseTrain.Of(s, Channel, Parse(text).Item1)));
         }
 
-        public IObservable<Tuple<int, int>> Process(IObservable<string> commands, IObservable<DispenseProcedure> procedure)
+        public IObservable<PulseTrain> Process(IObservable<string> commands, IObservable<DispenseProcedure> procedure)
         {
             return procedure.Take(1).SelectMany(p => commands.Select(text =>
             {
                 var drip = Parse(text);
                 var valves = Valves.Of(p);
                 int line = drip.Item2 > 0 ? drip.Item2 : valves.Length > 0 ? valves[0] : Channel;
-                return PulseBurst.Burst(line, p.Samples.Max(x => x.Size), drip.Item1, p.Samples.Max(x => x.InterPulseIntervalMs));
-            }).Concat());
+                return new PulseTrain { Line = line, WidthMs = p.Samples.Max(x => x.Size), Count = drip.Item1, PulseGapMs = Valves.Gap(p) };
+            }));
         }
 
         /// <summary>A Drip command's (pulses, line), the line 0 when not named.</summary>
@@ -293,26 +323,17 @@ namespace CoenQcCalibrateValve
     // window before starting (and then can edit)"): pulses on TriggerCalibratedPulse alone, never on
     // BurstPulses, so ManualBalance does not count them.
     [Combinator]
-    [Description("Each Test command fired as pulses: its text is the width in ms, the pulses and the line, such as '20 10 DO1'. One test at a time, in the order sent.")]
+    [Description("Each Test command as a burst: its text is the width in ms, the pulses and the line, such as '20 10 DO1', at the procedure's pulseGapMs. Input: (the command's text, the settings).")]
     [WorkflowElementCategory(ElementCategory.Transform)]
-    public class TestBurst
+    public class TestTrain
     {
-        int interPulseIntervalMs = 80;
-
-        [Description("The gap after each pulse, in ms: 80, as the procedure's.")]
-        public int InterPulseIntervalMs
+        public IObservable<PulseTrain> Process(IObservable<Tuple<string, DispenseCalibration>> source)
         {
-            get { return interPulseIntervalMs; }
-            set { interPulseIntervalMs = value; }
-        }
-
-        public IObservable<Tuple<int, int>> Process(IObservable<string> source)
-        {
-            return source.Select(text =>
+            return source.Select(input =>
             {
-                var test = Parse(text);
-                return PulseBurst.Burst(test.Item3, test.Item1, test.Item2, InterPulseIntervalMs);
-            }).Concat();
+                var test = Parse(input.Item1);
+                return new PulseTrain { Line = test.Item3, WidthMs = test.Item1, Count = test.Item2, PulseGapMs = Valves.Gap(input.Item2.Procedure) };
+            });
         }
 
         /// <summary>A Test command's (width ms, pulses, line).</summary>
@@ -350,10 +371,11 @@ namespace CoenQcCalibrateValve
         public double before { get; set; }
         public double after { get; set; }
         public int channel { get; set; }
+        public int pulseGapMs { get; set; }
     }
 
     [Combinator]
-    [Description("Each weighed burst as a row of the weights file: its pulse width in ms, its pulses (its drips included), the grams before and after it, and the valve it fired on (1 to 3). Input: (((grams after, grams before), its sample), its drip pulses), RunCalibration's output with SampleDrips.")]
+    [Description("Each weighed burst as a row of the weights file: its pulse width in ms, its pulses (its drips included), the grams before and after it, the valve it fired on (1 to 3) and its pulseGapMs. Input: (((grams after, grams before), its sample), its drip pulses), RunCalibration's output with SampleDrips.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
     public class ValveWeighingRow
     {
@@ -378,7 +400,8 @@ namespace CoenQcCalibrateValve
                     repeats = weighed.Item2.Repeats + input.Item2,
                     before = weighed.Item1.Item2,
                     after = weighed.Item1.Item1,
-                    channel = valve != null ? valve.Channel : Channel
+                    channel = valve != null ? valve.Channel : Channel,
+                    pulseGapMs = weighed.Item2.PulseGapMs
                 };
             });
         }

@@ -1,24 +1,24 @@
 using Bonsai;
-using OpenRigs.Core;
 using System;
 using System.ComponentModel;
 using System.Reactive.Linq;
 
 // Water delivered at a reward's pulse width (Pip, 11 Nov 2026: "select a reward size ... and also offer
 // to deliver 1 ml of water with clicks of that length"): rig-control's Calibrations page works out
-// the width and the pulses from the valve's curve and launches deliver.bonsai with them. Compiled by
-// Bonsai under C# 5.
+// the width and the pulses from the valve's curve and launches deliver.bonsai with them and the
+// curve's pulseGapMs, so the water is fired as the calibration fired it (OpenRigs.Core FirePulses).
+// Compiled by Bonsai under C# 5.
 namespace CoenQcCalibrateValve
 {
     [Combinator]
-    [Description("At each input, fires Pulses pulse requests of SizeMs on Channel, one every SizeMs plus InterPulseIntervalMs (OpenRigs.Core PulseBurst), completing one period after the last so its drop can land.")]
+    [Description("At each input, one burst for FirePulses: Pulses pulses of SizeMs on Channel at PulseGapMs. Input: (anything, rig.yml's valves); stops the workflow if Channel is not a RewardValve in rig.yml's wiring or a setting is out of range.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
-    public class DeliverBurst
+    public class DeliverTrain
     {
         int channel = 1;
         int sizeMs = 1;
         int pulses;
-        int interPulseIntervalMs = 80;
+        int pulseGapMs;
 
         [Description("The valve's behavior board line, 1 to 3 (DO1 to DO3).")]
         public int Channel
@@ -41,21 +41,17 @@ namespace CoenQcCalibrateValve
             set { pulses = value; }
         }
 
-        [Description("The gap after each pulse, in ms.")]
-        public int InterPulseIntervalMs
+        [Description("The off-to-on time between pulses, in ms: the valve's calibration file's pulseGapMs.")]
+        public int PulseGapMs
         {
-            get { return interPulseIntervalMs; }
-            set { interPulseIntervalMs = value; }
+            get { return pulseGapMs; }
+            set { pulseGapMs = value; }
         }
 
-        public IObservable<Tuple<int, int>> Process<TSource>(IObservable<TSource> source)
+        public IObservable<PulseTrain> Process<TSource>(IObservable<Tuple<TSource, ValveRig>> source)
         {
-            return source.SelectMany(_ =>
+            return source.Select(input =>
             {
-                if (Channel < 1 || Channel > 3)
-                {
-                    throw new InvalidOperationException(string.Format("Channel {0} is not a behavior board line (1 to 3).", Channel));
-                }
                 if (Pulses < 1 || Pulses > 5000)
                 {
                     throw new InvalidOperationException(string.Format("Pulses {0} is not a delivery: give 1 to 5000.", Pulses));
@@ -64,7 +60,12 @@ namespace CoenQcCalibrateValve
                 {
                     throw new InvalidOperationException(string.Format("SizeMs {0} is not a pulse width: give 1 to 1000 ms.", SizeMs));
                 }
-                return PulseBurst.Burst(Channel, SizeMs, Pulses, InterPulseIntervalMs);
+                if (PulseGapMs < 1 || PulseGapMs > 10000)
+                {
+                    throw new InvalidOperationException(string.Format("PulseGapMs {0} is not a gap: give the valve calibration file's pulseGapMs, 1 to 10000 ms.", PulseGapMs));
+                }
+                input.Item2.Check(new[] { Channel });
+                return new PulseTrain { Line = Channel, WidthMs = SizeMs, Count = Pulses, PulseGapMs = PulseGapMs };
             });
         }
     }

@@ -1,7 +1,8 @@
 # Settings of the valve calibration (OpenRigs.Core DispenseCalibration's form), read at Start by
-# src\main.bonsai for the bursts and by rig-control for the fit (fit, densityGPerMl, requireMonotone;
-# fitOrder is unused, since only LinearFit is built). The valve line, its file name and the behavior
-# board's port come from the rig's own rig.yml, through rig-control's launch, never from here.
+# src\main.bonsai for the bursts and by rig-control for the fit (densityGPerMl, requireMonotone).
+# The fit is rig-control's Python (a LinearFit), never Bonsai's. The valve lines, the board's port
+# and the stage come from the rig's own rig.yml; the run's lines and file name from rig-control's
+# launch; never from here.
 #
 # The balance is read by rig-control (OpenRigs.Devices ManualBalance): after each burst the run asks for
 # the weight and waits up to weighTimeoutS for rig-control to send it, read off the camera or typed,
@@ -13,9 +14,12 @@
 # every width alike; each burst is a point of the curve, so a line fitted to it (LinearFit) averages the repeats. Every burst delivers about what 600
 # pulses at 20 ms do, taking volume as proportional to width: 600 at 20 ms, 480 at 25, 400 at 30,
 # 300 at 40, 240 at 50, 171 at 70 and 120 at 100 (Pip, 6 Nov 2026: 500 at 20 ms; 9 Nov 2026: "increase
-# delivery total volume by 25% (to a rounded number near that)", so +20%). Pulses are 80 ms apart (63
-# until 11 Nov 2026, Pip: "increase the time between clicks"; the valves over-delivered 12 to 27%
-# against their curves). Bursts are timed on the PC, so main.bonsai logs each pulse as the board fired it. Before each
+# delivery total volume by 25% (to a rounded number near that)", so +20%). pulseGapMs is the
+# off-to-on time between pulses, 80 ms (63 until 11 Nov 2026, Pip: "increase the time between
+# clicks"; the valves over-delivered 12 to 27% against their curves). Every sample takes the same
+# one: the calibration file records it and a rig fires its rewards at it, so the workflow refuses
+# samples at different gaps. Pulses are timed on the behavior board's Harp clock (OpenRigs.Core
+# FirePulses), and main.bonsai logs each as the board fired it. Before each
 # weighing, rig-control fires drips of the same width until the balance moves (a drop can hang on
 # the spout); they are added to that burst's pulses in the weights file (Pip, 8 Nov 2026).
 # The widths are written for a 20 ms minimum: at Go they are scaled so the smallest is the rig's
@@ -23,20 +27,20 @@
 # written (Pip, 12 Nov 2026: "Max opening should be 5 x min, so all just scale").
 procedure:
   samples:
-    - { size: 40, repeats: 300, interPulseIntervalMs: 80 } # round 1
-    - { size: 30, repeats: 400, interPulseIntervalMs: 80 }
-    - { size: 50, repeats: 240, interPulseIntervalMs: 80 }
-    - { size: 25, repeats: 480, interPulseIntervalMs: 80 }
-    - { size: 100, repeats: 120, interPulseIntervalMs: 80 }
-    - { size: 20, repeats: 600, interPulseIntervalMs: 80 }
-    - { size: 70, repeats: 171, interPulseIntervalMs: 80 }
-    - { size: 25, repeats: 480, interPulseIntervalMs: 80 } # round 2
-    - { size: 20, repeats: 600, interPulseIntervalMs: 80 }
-    - { size: 100, repeats: 120, interPulseIntervalMs: 80 }
-    - { size: 70, repeats: 171, interPulseIntervalMs: 80 }
-    - { size: 40, repeats: 300, interPulseIntervalMs: 80 }
-    - { size: 30, repeats: 400, interPulseIntervalMs: 80 }
-    - { size: 50, repeats: 240, interPulseIntervalMs: 80 }
+    - { size: 40, repeats: 300, pulseGapMs: 80 } # round 1
+    - { size: 30, repeats: 400, pulseGapMs: 80 }
+    - { size: 50, repeats: 240, pulseGapMs: 80 }
+    - { size: 25, repeats: 480, pulseGapMs: 80 }
+    - { size: 100, repeats: 120, pulseGapMs: 80 }
+    - { size: 20, repeats: 600, pulseGapMs: 80 }
+    - { size: 70, repeats: 171, pulseGapMs: 80 }
+    - { size: 25, repeats: 480, pulseGapMs: 80 } # round 2
+    - { size: 20, repeats: 600, pulseGapMs: 80 }
+    - { size: 100, repeats: 120, pulseGapMs: 80 }
+    - { size: 70, repeats: 171, pulseGapMs: 80 }
+    - { size: 40, repeats: 300, pulseGapMs: 80 }
+    - { size: 30, repeats: 400, pulseGapMs: 80 }
+    - { size: 50, repeats: 240, pulseGapMs: 80 }
   xName: pulse_width
   xUnit: ms
   primingPulses: 5
@@ -44,6 +48,4 @@ procedure:
   densityGPerMl: 1.0
   settleWindow: 1
   weighTimeoutS: 3600
-  fit: LinearFit
-  fitOrder: 2
   requireMonotone: true

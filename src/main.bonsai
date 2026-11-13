@@ -14,9 +14,8 @@
                  xmlns:sys="clr-namespace:System;assembly=mscorlib"
                  xmlns:harp="clr-namespace:Bonsai.Harp;assembly=Bonsai.Harp"
                  xmlns:beh="clr-namespace:Harp.Behavior;assembly=Harp.Behavior"
-                 xmlns:p3="clr-namespace:Harp.StepperDriver;assembly=Harp.StepperDriver"
                  xmlns="https://bonsai-rx.org/2018/workflow">
-  <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines and the board as its rig.yml gives them (PortName, OutputPulseEnable, Channel or Channels, FileName). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its repeats. The procedure (pulse widths, repeats) is config\valve-calibration.yml, its widths scaled at Go so the smallest is the MinPulseMs parameter (ScaleWidths); before Go, Test commands fire a few pulses at a width so a valve's opening can be seen (TestBurst). On a rig with a lick spout stage (StepperDriver1PortName, StepperDriver2PortName, SpoutMotor1Position to SpoutMotor5Position, which rig-control gives from rig.yml and the newest mouse's saved positions), the stage is zeroed and the spouts moved to that in-position before Ready, and taken back once the last burst is weighed (Spouts). Ready once the board answers and the spouts are in; Go runs the procedure; Finished once every burst is weighed.</Description>
+  <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines (Channel or Channels) and FileName; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml (ReadValveRig), and every burst is fired on the board's Harp clock at the procedure's one pulseGapMs (OpenRigs.Core FirePulses). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its repeats. The procedure (pulse widths, repeats) is config\valve-calibration.yml, its widths scaled at Go so the smallest is the MinPulseMs parameter (ScaleWidths); before Go, Test commands fire a few pulses at a width so a valve's opening can be seen (TestTrain). On a rig whose rig.yml has a lick spout stage, OpenRigs.Devices HarpLickSpoutStage homes it and moves the spouts to the in position from PositionsFile, then both in/out axes fully forward, before Ready, and back to the in position once the last burst is weighed (Extensions\Spouts.bonsai). Ready once the board answers and the spouts are in; Go runs the procedure; Finished once every burst is weighed.</Description>
   <Workflow>
     <Nodes>
       <Expression xsi:type="ExternalizedMapping">
@@ -26,7 +25,7 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Settings</Name>
-        <Description>RigConfigDirectory is &lt;ConfigRoot&gt;\&lt;MACHINE-NAME&gt;, where the calibration writes its weights. ValveCalibrationSettings is config\valve-calibration.yml expanded over the valves (InterleaveValves, src\Extensions): each sample once per valve in Channels (else the one Channel), in turn, and the priming pulses once per valve, so ManualBalance, RunCalibration and the weights file all follow the bursts as they fire. Fails at startup if the machine has no configuration directory.</Description>
+        <Description>RigConfigDirectory is &lt;ConfigRoot&gt;\&lt;MACHINE-NAME&gt;, where the calibration writes its weights. ValveRig is what the calibration takes from rig.yml there (ReadValveRig, src\Extensions\ValveRig.cs): the board's port, its RewardValve lines from wiring and, on a rig with one, the lick spout stage's drivers; it stops the workflow if rig.yml has no board, port or RewardValve. ValveCalibrationSettings is config\valve-calibration.yml expanded over the valves (InterleaveValves, src\Extensions): each sample once per valve in Channels (else the one Channel), in turn, and the priming pulses once per valve, so ManualBalance, RunCalibration and the weights file all follow the bursts as they fire; it stops the workflow if a valve is not a RewardValve in rig.yml or the samples are at different pulseGapMs. Fails at startup if the machine has no configuration directory.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
@@ -41,6 +40,12 @@
               <Name>RigConfigDirectory</Name>
             </Expression>
             <Expression xsi:type="Combinator">
+              <Combinator xsi:type="vc:ReadValveRig" />
+            </Expression>
+            <Expression xsi:type="rx:AsyncSubject">
+              <Name>ValveRig</Name>
+            </Expression>
+            <Expression xsi:type="Combinator">
               <Combinator xsi:type="io:ReadAllText">
                 <io:Path>..\config\valve-calibration.yml</io:Path>
               </Combinator>
@@ -52,6 +57,9 @@
               <Combinator xsi:type="rx:Take">
                 <rx:Count>1</rx:Count>
               </Combinator>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:Zip" />
             </Expression>
             <Expression xsi:type="ExternalizedMapping">
               <Property Name="Channel" DisplayName="Channel" />
@@ -73,11 +81,15 @@
           <Edges>
             <Edge From="0" To="1" Label="Source1" />
             <Edge From="1" To="2" Label="Source1" />
+            <Edge From="2" To="3" Label="Source1" />
             <Edge From="3" To="4" Label="Source1" />
-            <Edge From="4" To="5" Label="Source1" />
-            <Edge From="5" To="7" Label="Source1" />
-            <Edge From="6" To="7" Label="Source2" />
+            <Edge From="5" To="6" Label="Source1" />
+            <Edge From="6" To="7" Label="Source1" />
             <Edge From="7" To="8" Label="Source1" />
+            <Edge From="4" To="8" Label="Source2" />
+            <Edge From="8" To="10" Label="Source1" />
+            <Edge From="9" To="10" Label="Source2" />
+            <Edge From="10" To="11" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
@@ -129,7 +141,7 @@
                 </Command>
                 <Command>
                   <Name>Test</Name>
-                  <Description>Before Go, fires pulses to see a valve open at a width: the text is the width in ms, the pulses and the line, such as 20 10 DO1 (TestBurst). Not counted anywhere; ignored after Go.</Description>
+                  <Description>Before Go, fires pulses to see a valve open at a width: the text is the width in ms, the pulses and the line, such as 20 10 DO1 (TestTrain). Not counted anywhere; ignored after Go.</Description>
                 </Command>
               </Commands>
             </Expression>
@@ -161,27 +173,33 @@
           </Edges>
         </Workflow>
       </Expression>
-      <Expression xsi:type="ExternalizedMapping">
-        <Property Name="PortName" DisplayName="PortName" Description="The behavior board's serial port: rig.yml's behaviorBoard: main: portName, which rig-control gives at launch." />
-        <Property Name="OutputPulseEnable" DisplayName="OutputPulseEnable" Description="The board lines that pulse, such as DO1, DO2: rig.yml's pulseController outputPulseEnable, which rig-control gives at launch." />
-      </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Hardware</Name>
-        <Description>The behavior board on PortName, with the PulseController pulsing the OutputPulseEnable lines: its TriggerCalibratedPulse fires one pulse of a given width on a line, as in a session. The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. Ready 1 s after the board's first event, once the PulseController's setup has gone out. The calibration camera (Pip, 10 Nov 2026) is a USB camera plugged in on the balance, a different one on each rig and in no rig.yml: OpenRigs.Video UsbCamera opens the first that is not the rig's own (none of rig.yml's camera serials, no FLIR or Basler vendor id), free-running, and publishes its frames as Camera-Temporary.Data, which LiveView streams as a temporary device and Snapshots saves; none plugged in stops the workflow at start, saying so. Nothing is recorded. Its exposure is the controller's CameraExposureUs parameter, the rig cameras' name and unit (Pip, 10 Nov 2026: one setting for one meaning), taken at the nearest power of two of a second the camera allows: it starts at 15625 (1/64 s) and takes each value the controller sets (OnParameterSet) straight to the open camera, so rig-control's Calibrations page can make the balance's display readable; ParameterDefault shows the starting value 1 s in, once the controller is up. No gain: a USB camera's has no unit common to its models. No camera trigger runs, so DO0 and DO1 stay free.</Description>
+        <Description>The behavior board on rig.yml's port (ValveRig), with the PulseController pulsing its RewardValve lines and no other: its TriggerCalibratedPulse fires one pulse of a given width on a line, as in a session. BehaviorBoard.Timestamps publishes the board's Harp clock as Timestamp, which every burst is timed on (OpenRigs.Core FirePulses, at the procedure's pulseGapMs). The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. Ready 1 s after the board's first event, once the PulseController's setup has gone out. The calibration camera (Pip, 10 Nov 2026) is a USB camera plugged in on the balance, a different one on each rig and in no rig.yml: OpenRigs.Video UsbCamera opens the first that is not the rig's own (none of rig.yml's camera serials, no FLIR or Basler vendor id), free-running, and publishes its frames as Camera-Temporary.Data, which LiveView streams as a temporary device and Snapshots saves; none plugged in stops the workflow at start, saying so. Nothing is recorded. Its exposure is the controller's CameraExposureUs parameter, the rig cameras' name and unit (Pip, 10 Nov 2026: one setting for one meaning), taken at the nearest power of two of a second the camera allows: it starts at 15625 (1/64 s) and takes each value the controller sets (OnParameterSet) straight to the open camera, so rig-control's Calibrations page can make the balance's display readable; ParameterDefault shows the starting value 1 s in, once the controller is up. No gain: a USB camera's has no unit common to its models. No camera trigger runs, so DO0 and DO1 stay free.</Description>
         <Workflow>
           <Nodes>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="PortName" DisplayName="PortName" />
+            <Expression xsi:type="SubscribeSubject">
+              <Name>ValveRig</Name>
+            </Expression>
+            <Expression xsi:type="PropertyMapping">
+              <PropertyMappings>
+                <Property Name="PortName" Selector="PortName" />
+              </PropertyMappings>
             </Expression>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.BehaviorBoard.bonsai">
               <CommandsSubjectName>BehaviorBoard-Main.Commands</CommandsSubjectName>
-              <PortName>COMx</PortName>
+              <PortName>UNMAPPED</PortName>
               <DumpRegisters>true</DumpRegisters>
               <Heartbeat>Enabled</Heartbeat>
               <EventsSubjectName>BehaviorBoard-Main.Data</EventsSubjectName>
             </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="OutputPulseEnable" DisplayName="OutputPulseEnable" />
+            <Expression xsi:type="SubscribeSubject">
+              <Name>ValveRig</Name>
+            </Expression>
+            <Expression xsi:type="PropertyMapping">
+              <PropertyMappings>
+                <Property Name="OutputPulseEnable" Selector="OutputPulseEnable" />
+              </PropertyMappings>
             </Expression>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.PulseController.bonsai">
               <BehaviorCommandsSubjectName>BehaviorBoard-Main.Commands</BehaviorCommandsSubjectName>
@@ -193,6 +211,10 @@
               <TriggerPulseSubjectName>TriggerPulse</TriggerPulseSubjectName>
               <TriggerCalibratedPulseSubjectName>TriggerCalibratedPulse</TriggerCalibratedPulseSubjectName>
             </Expression>
+            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.Timestamps.bonsai">
+              <EventsSubjectName>BehaviorBoard-Main.Data</EventsSubjectName>
+              <CommandsSubjectName>BehaviorBoard-Main.Commands</CommandsSubjectName>
+            </Expression>
             <Expression xsi:type="rx:PublishSubject" TypeArguments="orc:WeightMeasurement">
               <rx:Name>BalanceReading</rx:Name>
             </Expression>
@@ -201,7 +223,7 @@
             </Expression>
             <Expression xsi:type="rx:SelectMany">
               <Name>ManualBalance</Name>
-              <Description>A balance read by eye, OpenRigs.Devices ManualBalance. From Go it follows the procedure's bursts by their pulses, on BurstPulses (never a drip's: drips fire on TriggerCalibratedPulse alone, so its count of bursts holds), and, once each has landed, asks for a weight in the weigh metric; the next weight typed with the Weight command is forwarded to BalanceReading as that burst's reading. Ready 1 s after the board's first event: the PulseController sends its setup (pulse mode on the OutputPulseEnable lines) 0.5 s after it, and a Go before that would fire the first pulse with the line not yet in pulse mode.</Description>
+              <Description>A balance read by eye, OpenRigs.Devices ManualBalance. From Go it follows the procedure's bursts by their pulses, on BurstPulses (never a drip's: drips fire on TriggerCalibratedPulse alone, so its count of bursts holds), and, once each has landed, asks for a weight in the weigh metric; the next weight typed with the Weight command is forwarded to BalanceReading as that burst's reading. Ready 1 s after the board's first event: the PulseController sends its setup (pulse mode on the RewardValve lines) 0.5 s after it, and a Go before that would fire the first pulse with the line not yet in pulse mode.</Description>
               <Workflow>
                 <Nodes>
                   <Expression xsi:type="WorkflowInput">
@@ -365,9 +387,32 @@
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="rx:TakeUntil" />
             </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>ValveCalibrationSettings</Name>
+            </Expression>
             <Expression xsi:type="Combinator">
-              <Combinator xsi:type="vc:TestBurst">
-                <vc:InterPulseIntervalMs>80</vc:InterPulseIntervalMs>
+              <Combinator xsi:type="rx:WithLatestFrom" />
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="vc:TestTrain" />
+            </Expression>
+            <Expression xsi:type="InputMapping">
+              <PropertyMappings>
+                <Property Name="Line" Selector="Line" />
+                <Property Name="WidthMs" Selector="WidthMs" />
+                <Property Name="Count" Selector="Count" />
+                <Property Name="PulseGapMs" Selector="PulseGapMs" />
+              </PropertyMappings>
+            </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>Timestamp</Name>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="orc:FirePulses">
+                <orc:Line>1</orc:Line>
+                <orc:WidthMs>1</orc:WidthMs>
+                <orc:Count>0</orc:Count>
+                <orc:PulseGapMs>0</orc:PulseGapMs>
               </Combinator>
             </Expression>
             <Expression xsi:type="MulticastSubject">
@@ -375,23 +420,30 @@
             </Expression>
           </Nodes>
           <Edges>
-            <Edge From="18" To="19" Label="Source1" />
-            <Edge From="19" To="21" Label="Source1" />
-            <Edge From="20" To="21" Label="Source2" />
-            <Edge From="21" To="22" Label="Source1" />
-            <Edge From="22" To="23" Label="Source1" />
             <Edge From="0" To="1" Label="Source1" />
-            <Edge From="2" To="3" Label="Source1" />
-            <Edge From="5" To="6" Label="Source1" />
-            <Edge From="7" To="8" Label="Source1" />
-            <Edge From="10" To="14" Label="Source1" />
-            <Edge From="11" To="12" Label="Source1" />
-            <Edge From="12" To="13" Label="Source1" />
-            <Edge From="13" To="14" Label="Source2" />
+            <Edge From="1" To="2" Label="Source1" />
+            <Edge From="3" To="4" Label="Source1" />
+            <Edge From="4" To="5" Label="Source1" />
+            <Edge From="8" To="9" Label="Source1" />
+            <Edge From="10" To="11" Label="Source1" />
+            <Edge From="13" To="17" Label="Source1" />
             <Edge From="14" To="15" Label="Source1" />
-            <Edge From="15" To="7" Label="Source1" />
-            <Edge From="10" To="16" Label="Source1" />
-            <Edge From="16" To="17" Label="Source1" />
+            <Edge From="15" To="16" Label="Source1" />
+            <Edge From="16" To="17" Label="Source2" />
+            <Edge From="17" To="18" Label="Source1" />
+            <Edge From="18" To="10" Label="Source1" />
+            <Edge From="13" To="19" Label="Source1" />
+            <Edge From="19" To="20" Label="Source1" />
+            <Edge From="21" To="22" Label="Source1" />
+            <Edge From="22" To="24" Label="Source1" />
+            <Edge From="23" To="24" Label="Source2" />
+            <Edge From="24" To="26" Label="Source1" />
+            <Edge From="25" To="26" Label="Source2" />
+            <Edge From="26" To="27" Label="Source1" />
+            <Edge From="27" To="28" Label="Source1" />
+            <Edge From="28" To="30" Label="Source1" />
+            <Edge From="29" To="30" Label="Source2" />
+            <Edge From="30" To="31" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
@@ -400,7 +452,7 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Calibration</Name>
-        <Description>Reports the valves and the weights file as the target metric. At Go, RunCalibration with ValveCalibrationSettings (the bursts of OpenRigs.Core's DispenseCalibration, without its fit, expanded over the valves): it primes each valve and weighs a baseline, then fires each burst on its valve through TriggerCalibratedPulse (ValvePulseBurst) and weighs on BalanceReading. Each burst is written as it is weighed to calibration\&lt;FileName&gt;-weights.csv in RigConfigDirectory (columns size, repeats, before, after, channel: its pulse width in ms, its pulses with the drips fired after it (SampleDrips), the grams before and after it, and its line, 1 to 3; replaced every run). No fit here: once the run completes, rig-control splits the rows by channel, builds each valve's curve and writes it to that valve's calibration\*.json, with history, refusing one that is not monotone. Reports how many bursts were weighed as the points metric, then Finished. Each weighing is zipped with its drips from SampleDrips, which never completes, so SampleDrips is cut off once RunCalibration's last weighing has passed (Last, TakeUntil): a Zip whose first input has ended still waits for its second, and without the cut the rows never ended, so Finished was never reported (10 Nov 2026: Calibrate All stuck after its last weight).</Description>
+        <Description>Reports the valves and the weights file as the target metric. At Go, RunCalibration with ValveCalibrationSettings (the bursts of OpenRigs.Core's DispenseCalibration, without its fit, expanded over the valves): it primes each valve and weighs a baseline, then fires each burst on its valve through TriggerCalibratedPulse (ValveTrains into FirePulses, on the Harp clock at the procedure's pulseGapMs) and weighs on BalanceReading. Each burst is written as it is weighed to calibration\&lt;FileName&gt;-weights.csv in RigConfigDirectory (columns size, repeats, before, after, channel, pulseGapMs: its pulse width in ms, its pulses with the drips fired after it (SampleDrips), the grams before and after it, its line, 1 to 3, and the off-to-on time between its pulses in ms; replaced every run). No fit here: once the run completes, rig-control splits the rows by channel, builds each valve's curve and writes it to that valve's calibration\*.json, with history, refusing one that is not monotone. Reports how many bursts were weighed as the points metric, then Finished. Each weighing is zipped with its drips from SampleDrips, which never completes, so SampleDrips is cut off once RunCalibration's last weighing has passed (Last, TakeUntil): a Zip whose first input has ended still waits for its second, and without the cut the rows never ended, so Finished was never reported (10 Nov 2026: Calibrate All stuck after its last weight).</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
@@ -491,7 +543,7 @@
             </Expression>
             <Expression xsi:type="rx:SelectMany">
               <Name>RunCalibration</Name>
-              <Description>OpenRigs.Core DispenseCalibration's bursts (lib-open-rigs src\OpenRigs.Core\DispenseCalibration.bonsai, copied 7 Nov 2026), without its fit and file writing: primes each valve and weighs a baseline, then each sample's burst on its valve (ValvePulseBurst, src\Extensions) and its weighing, in turn. The settings sit in a scoped subject so every step reads the same values. Output: each burst once weighed, as ((grams after, grams before), its sample).</Description>
+              <Description>OpenRigs.Core DispenseCalibration's bursts (lib-open-rigs src\OpenRigs.Core\DispenseCalibration.bonsai, copied 7 Nov 2026), without its fit and file writing: primes each valve and weighs a baseline, then each sample's burst on its valve (ValveTrains, src\Extensions, into OpenRigs.Core FirePulses on the Harp clock) and its weighing, in turn. The settings sit in a scoped subject so every step reads the same values. Output: each burst once weighed, as ((grams after, grams before), its sample).</Description>
               <Workflow>
                 <Nodes>
                   <Expression xsi:type="WorkflowInput">
@@ -514,7 +566,7 @@
                   </Expression>
                   <Expression xsi:type="rx:CreateObservable">
                     <Name>PrimeAndWeighBaseline</Name>
-                    <Description>Fires the priming burst to fill the line, then weighs the baseline once it has landed. While it is due, each Drip fires on the line it names (DripBurst), at the largest sample's width, so each spout's hanging drop falls first; those pulses count nowhere. The priming burst's pulses also go on BurstPulses, which ManualBalance counts; a drip's never do. BurstPulses is a BehaviorSubject: a MulticastSubject passes on its source's completion, which ends a PublishSubject for good, so the priming burst's end would leave ManualBalance deaf to every sample (8 Nov 2026: a run stopped at Firing sample 1).</Description>
+                    <Description>Fires the priming burst to fill the line, then weighs the baseline once it has landed. While it is due, each Drip fires on the line it names (DripTrains into FirePulses), at the largest sample's width, so each spout's hanging drop falls first; those pulses count nowhere. The priming burst's pulses also go on BurstPulses, which ManualBalance counts; a drip's never do. BurstPulses is a BehaviorSubject: a MulticastSubject passes on its source's completion, which ends a PublishSubject for good, so the priming burst's end would leave ManualBalance deaf to every sample (8 Nov 2026: a run stopped at Firing sample 1).</Description>
                     <Workflow>
                       <Nodes>
                         <Expression xsi:type="WorkflowInput">
@@ -524,7 +576,7 @@
                           <Selector>Procedure</Selector>
                         </Expression>
                         <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="vc:ValvePulseBurst">
+                          <Combinator xsi:type="vc:ValveTrains">
                             <vc:Channel>1</vc:Channel>
                           </Combinator>
                         </Expression>
@@ -549,7 +601,7 @@
                           <Name>DripCommands</Name>
                         </Expression>
                         <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="vc:DripBurst">
+                          <Combinator xsi:type="vc:DripTrains">
                             <vc:Channel>1</vc:Channel>
                           </Combinator>
                         </Expression>
@@ -559,18 +611,62 @@
                         <Expression xsi:type="MulticastSubject">
                           <Name>BurstPulses</Name>
                         </Expression>
+                        <Expression xsi:type="InputMapping">
+                          <PropertyMappings>
+                            <Property Name="Line" Selector="Line" />
+                            <Property Name="WidthMs" Selector="WidthMs" />
+                            <Property Name="Count" Selector="Count" />
+                            <Property Name="PulseGapMs" Selector="PulseGapMs" />
+                          </PropertyMappings>
+                        </Expression>
+                        <Expression xsi:type="SubscribeSubject">
+                          <Name>Timestamp</Name>
+                        </Expression>
+                        <Expression xsi:type="Combinator">
+                          <Combinator xsi:type="orc:FirePulses">
+                            <orc:Line>1</orc:Line>
+                            <orc:WidthMs>1</orc:WidthMs>
+                            <orc:Count>0</orc:Count>
+                            <orc:PulseGapMs>0</orc:PulseGapMs>
+                          </Combinator>
+                        </Expression>
+                        <Expression xsi:type="InputMapping">
+                          <PropertyMappings>
+                            <Property Name="Line" Selector="Line" />
+                            <Property Name="WidthMs" Selector="WidthMs" />
+                            <Property Name="Count" Selector="Count" />
+                            <Property Name="PulseGapMs" Selector="PulseGapMs" />
+                          </PropertyMappings>
+                        </Expression>
+                        <Expression xsi:type="SubscribeSubject">
+                          <Name>Timestamp</Name>
+                        </Expression>
+                        <Expression xsi:type="Combinator">
+                          <Combinator xsi:type="orc:FirePulses">
+                            <orc:Line>1</orc:Line>
+                            <orc:WidthMs>1</orc:WidthMs>
+                            <orc:Count>0</orc:Count>
+                            <orc:PulseGapMs>0</orc:PulseGapMs>
+                          </Combinator>
+                        </Expression>
                       </Nodes>
                       <Edges>
                         <Edge From="0" To="1" Label="Source1" />
                         <Edge From="1" To="2" Label="Source1" />
-                        <Edge From="2" To="3" Label="Source1" />
-                        <Edge From="2" To="6" Label="Source1" />
+                        <Edge From="2" To="12" Label="Source1" />
+                        <Edge From="12" To="14" Label="Source1" />
+                        <Edge From="13" To="14" Label="Source2" />
+                        <Edge From="14" To="3" Label="Source1" />
+                        <Edge From="14" To="6" Label="Source1" />
                         <Edge From="4" To="6" Label="Source2" />
                         <Edge From="5" To="6" Label="Source3" />
                         <Edge From="6" To="7" Label="Source1" />
                         <Edge From="8" To="9" Label="Source1" />
                         <Edge From="1" To="9" Label="Source2" />
-                        <Edge From="9" To="10" Label="Source1" />
+                        <Edge From="9" To="15" Label="Source1" />
+                        <Edge From="15" To="17" Label="Source1" />
+                        <Edge From="16" To="17" Label="Source2" />
+                        <Edge From="17" To="10" Label="Source1" />
                         <Edge From="3" To="11" Label="Source1" />
                       </Edges>
                     </Workflow>
@@ -595,14 +691,14 @@
                   </Expression>
                   <Expression xsi:type="rx:CreateObservable">
                     <Name>FireAndWeighSample</Name>
-                    <Description>One sample: fires its burst of pulses, then weighs once the last has landed. While it is due, each Drip fires more pulses of its width on its valve (DripBurst), until rig-control sees the balance move; the drip pulses fired before the weighing go on SampleDrips, for its row's repeats. SampleDrips is a BehaviorSubject, as each sample's Count completes and would end a PublishSubject after the first sample, and the Zip of rows with it (8 Nov 2026: a run Finished after sample 2 with one row). The burst's own pulses also go on BurstPulses, which ManualBalance counts; a drip's never do. The samples run in turn, each starting after the previous weighing.</Description>
+                    <Description>One sample: fires its burst of pulses, then weighs once the last has landed. While it is due, each Drip fires more pulses of its width on its valve (DripTrains into FirePulses), until rig-control sees the balance move; the drip pulses fired before the weighing go on SampleDrips, for its row's repeats. SampleDrips is a BehaviorSubject, as each sample's Count completes and would end a PublishSubject after the first sample, and the Zip of rows with it (8 Nov 2026: a run Finished after sample 2 with one row). The burst's own pulses also go on BurstPulses, which ManualBalance counts; a drip's never do. The samples run in turn, each starting after the previous weighing.</Description>
                     <Workflow>
                       <Nodes>
                         <Expression xsi:type="WorkflowInput">
                           <Name>Source1</Name>
                         </Expression>
                         <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="vc:ValvePulseBurst">
+                          <Combinator xsi:type="vc:ValveTrains">
                             <vc:Channel>1</vc:Channel>
                           </Combinator>
                         </Expression>
@@ -627,7 +723,7 @@
                           <Name>DripCommands</Name>
                         </Expression>
                         <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="vc:DripBurst">
+                          <Combinator xsi:type="vc:DripTrains">
                             <vc:Channel>1</vc:Channel>
                           </Combinator>
                         </Expression>
@@ -646,17 +742,61 @@
                         <Expression xsi:type="MulticastSubject">
                           <Name>BurstPulses</Name>
                         </Expression>
+                        <Expression xsi:type="InputMapping">
+                          <PropertyMappings>
+                            <Property Name="Line" Selector="Line" />
+                            <Property Name="WidthMs" Selector="WidthMs" />
+                            <Property Name="Count" Selector="Count" />
+                            <Property Name="PulseGapMs" Selector="PulseGapMs" />
+                          </PropertyMappings>
+                        </Expression>
+                        <Expression xsi:type="SubscribeSubject">
+                          <Name>Timestamp</Name>
+                        </Expression>
+                        <Expression xsi:type="Combinator">
+                          <Combinator xsi:type="orc:FirePulses">
+                            <orc:Line>1</orc:Line>
+                            <orc:WidthMs>1</orc:WidthMs>
+                            <orc:Count>0</orc:Count>
+                            <orc:PulseGapMs>0</orc:PulseGapMs>
+                          </Combinator>
+                        </Expression>
+                        <Expression xsi:type="InputMapping">
+                          <PropertyMappings>
+                            <Property Name="Line" Selector="Line" />
+                            <Property Name="WidthMs" Selector="WidthMs" />
+                            <Property Name="Count" Selector="Count" />
+                            <Property Name="PulseGapMs" Selector="PulseGapMs" />
+                          </PropertyMappings>
+                        </Expression>
+                        <Expression xsi:type="SubscribeSubject">
+                          <Name>Timestamp</Name>
+                        </Expression>
+                        <Expression xsi:type="Combinator">
+                          <Combinator xsi:type="orc:FirePulses">
+                            <orc:Line>1</orc:Line>
+                            <orc:WidthMs>1</orc:WidthMs>
+                            <orc:Count>0</orc:Count>
+                            <orc:PulseGapMs>0</orc:PulseGapMs>
+                          </Combinator>
+                        </Expression>
                       </Nodes>
                       <Edges>
                         <Edge From="0" To="1" Label="Source1" />
-                        <Edge From="1" To="2" Label="Source1" />
-                        <Edge From="1" To="5" Label="Source1" />
+                        <Edge From="1" To="14" Label="Source1" />
+                        <Edge From="14" To="16" Label="Source1" />
+                        <Edge From="15" To="16" Label="Source2" />
+                        <Edge From="16" To="2" Label="Source1" />
+                        <Edge From="16" To="5" Label="Source1" />
                         <Edge From="3" To="5" Label="Source2" />
                         <Edge From="4" To="5" Label="Source3" />
                         <Edge From="5" To="6" Label="Source1" />
                         <Edge From="7" To="8" Label="Source1" />
                         <Edge From="0" To="8" Label="Source2" />
-                        <Edge From="8" To="9" Label="Source1" />
+                        <Edge From="8" To="17" Label="Source1" />
+                        <Edge From="17" To="19" Label="Source1" />
+                        <Edge From="18" To="19" Label="Source2" />
+                        <Edge From="19" To="9" Label="Source1" />
                         <Edge From="9" To="10" Label="Source1" />
                         <Edge From="5" To="10" Label="Source2" />
                         <Edge From="10" To="11" Label="Source1" />
@@ -768,7 +908,7 @@
             </Expression>
             <Expression xsi:type="rx:SelectMany">
               <Name>WritePulses</Name>
-              <Description>The board's own record of every pulse, beside the weights: each write the behavior board answers, stamped with its clock, to calibration\&lt;FileName&gt;-pulses.csv (columns Seconds, Register, Value; replaced every run). OutputSet is a line set (Value its lines as a number: DO1 = 2048, DO2 = 4096, DO3 = 8192), the start of a pulse as the board did it; PulseDO1 to PulseDO3 the width written just before, in ms. Bursts are timed on the PC, so these rows show what the board really fired: pulses closer than their width merged (Pip, 11 Nov 2026: valves over-delivering 12 to 27% against their curves). Opened once its path is known, as WriteWeights, and closed with the last weighing.</Description>
+              <Description>The board's own record of every pulse, beside the weights: each write the behavior board answers, stamped with its clock, to calibration\&lt;FileName&gt;-pulses.csv (columns Seconds, Register, Value; replaced every run). OutputSet is a line set (Value its lines as a number: DO1 = 2048, DO2 = 4096, DO3 = 8192), the start of a pulse as the board did it; PulseDO1 to PulseDO3 the width written just before, in ms. Bursts are timed on the board's Harp clock (FirePulses); these rows show what the board really fired. Opened once its path is known, as WriteWeights, and closed with the last weighing.</Description>
               <Workflow>
                 <Nodes>
                   <Expression xsi:type="WorkflowInput">
@@ -975,1052 +1115,13 @@
         </Workflow>
       </Expression>
       <Expression xsi:type="ExternalizedMapping">
-        <Property Name="StepperDriver1PortName" DisplayName="StepperDriver1PortName" Description="The lick spout stage's first StepperDriver board (motors 1 to 3), rig.yml's stepperDriver: a: portName, which rig-control gives at launch; empty on a rig with no stage, which then moves nothing." />
-        <Property Name="StepperDriver2PortName" DisplayName="StepperDriver2PortName" Description="The stage's second StepperDriver board (motors 4 and 5), rig.yml's stepperDriver: b: portName, which rig-control gives at launch." />
-        <Property Name="SpoutMotor1Position" DisplayName="SpoutMotor1Position" Description="The in-position of motor 1 (the base), in steps from its home switch: rig-control gives each motor's from the newest mouse's calibration\LickSpoutPositions\&lt;mouse&gt;.csv, its columns motor 1 to 5." />
-        <Property Name="SpoutMotor2Position" DisplayName="SpoutMotor2Position" Description="The in-position of motor 2 (the left spout's), in steps." />
-        <Property Name="SpoutMotor3Position" DisplayName="SpoutMotor3Position" Description="The in-position of motor 3 (the right spout's), in steps." />
-        <Property Name="SpoutMotor4Position" DisplayName="SpoutMotor4Position" Description="The in-position of motor 4 (the left spout's), in steps." />
-        <Property Name="SpoutMotor5Position" DisplayName="SpoutMotor5Position" Description="The in-position of motor 5 (the right spout's), in steps." />
+        <Property Name="PositionsFile" DisplayName="PositionsFile" Description="On a rig with a lick spout stage, the positions file whose in position the spouts go to: rig-control gives the newest mouse's calibration\LickSpoutPositions\&lt;mouse&gt;.csv beside rig.yml (one line, baseTransverse,leftRadial,rightRadial,leftElevation,rightElevation); a path with no file there takes rig.yml's lickSpoutDefaultPosition. Required on a rig with a stage, unused on one without." />
       </Expression>
-      <Expression xsi:type="GroupWorkflow">
-        <Name>Spouts</Name>
-        <Description>The spouts forward for the calibration (Pip, 10 Nov 2026), so each valve's drops land as in a session: on a rig with a lick spout stage (StepperDriver1PortName given), Stage zeroes it, moves it to a mouse's in-position and the in/out motors fully forward before Ready, and back to the in-position once the last weighing has passed; on one without, SpoutsReady at once and nothing moves. Last in the workflow, after the Calibration group whose CalibrationWeights it watches.</Description>
-        <Workflow>
-          <Nodes>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Value" DisplayName="StepperDriver1PortName" />
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="StringProperty">
-                <Value />
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Value" DisplayName="StepperDriver2PortName" />
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="StringProperty">
-                <Value />
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Value" DisplayName="SpoutMotor1Position" />
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="IntProperty">
-                <Value>0</Value>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Value" DisplayName="SpoutMotor2Position" />
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="IntProperty">
-                <Value>0</Value>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Value" DisplayName="SpoutMotor3Position" />
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="IntProperty">
-                <Value>0</Value>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Value" DisplayName="SpoutMotor4Position" />
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="IntProperty">
-                <Value>0</Value>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Value" DisplayName="SpoutMotor5Position" />
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="IntProperty">
-                <Value>0</Value>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="rx:Zip" />
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="rx:Zip" />
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="rx:Take">
-                <rx:Count>1</rx:Count>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="rx:Condition">
-              <Name>Stage?</Name>
-              <Workflow>
-                <Nodes>
-                  <Expression xsi:type="WorkflowInput">
-                    <Name>Source1</Name>
-                  </Expression>
-                  <Expression xsi:type="scr:ExpressionTransform">
-                    <scr:Expression>it.Item1 != ""</scr:Expression>
-                  </Expression>
-                  <Expression xsi:type="WorkflowOutput" />
-                </Nodes>
-                <Edges>
-                  <Edge From="0" To="1" Label="Source1" />
-                  <Edge From="1" To="2" Label="Source1" />
-                </Edges>
-              </Workflow>
-            </Expression>
-            <Expression xsi:type="rx:SelectMany">
-              <Name>Stage</Name>
-              <Description>The lick spout stage, only on a rig whose rig.yml has one. Both StepperDriver boards on their ports, set up as av-dome sets them (InitialiseStepperDriverSettings, ReadSwitchStates: copied from av-dome's StepperDriver group, 10 Nov 2026), every motor zeroed on its home switch (ZEROMotors), then moved to the in-position (SpoutMotor1Position to SpoutMotor5Position, a mouse's saved positions), then both in/out motors (motors 2 and 3, rig.yml's Radial left and right) fully forward to 15000 steps, the rest held (Pip, 12 Nov 2026: a fixed number until the travel is measured, BACKLOG), and SpoutsReady 5 s later (15000 steps at 280 us, plus 0.5 s). Once the last weighing has passed (CalibrationWeights ends), every motor goes back to the in-position: a Stop moves nothing.</Description>
-              <Workflow>
-                <Nodes>
-                  <Expression xsi:type="WorkflowInput">
-                    <Name>Source1</Name>
-                  </Expression>
-                  <Expression xsi:type="rx:AsyncSubject">
-                    <Name>StageSettings</Name>
-                  </Expression>
-                  <Expression xsi:type="rx:BehaviorSubject" TypeArguments="harp:HarpMessage">
-                    <rx:Name>StepperDriver1Commands</rx:Name>
-                  </Expression>
-                  <Expression xsi:type="SubscribeSubject">
-                    <Name>StageSettings</Name>
-                  </Expression>
-                  <Expression xsi:type="PropertyMapping">
-                    <PropertyMappings>
-                      <Property Name="PortName" Selector="Item1" />
-                    </PropertyMappings>
-                  </Expression>
-                  <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="p3:Device">
-                      <harp:OperationMode>Active</harp:OperationMode>
-                      <harp:OperationLed>On</harp:OperationLed>
-                      <harp:DumpRegisters>true</harp:DumpRegisters>
-                      <harp:VisualIndicators>On</harp:VisualIndicators>
-                      <harp:Heartbeat>Enabled</harp:Heartbeat>
-                      <harp:IgnoreErrors>false</harp:IgnoreErrors>
-                      <harp:PortName>COMx</harp:PortName>
-                    </Combinator>
-                  </Expression>
-                  <Expression xsi:type="rx:BehaviorSubject">
-                    <Name>StepperDriver1Events</Name>
-                  </Expression>
-                  <Expression xsi:type="rx:BehaviorSubject" TypeArguments="harp:HarpMessage">
-                    <rx:Name>StepperDriver2Commands</rx:Name>
-                  </Expression>
-                  <Expression xsi:type="SubscribeSubject">
-                    <Name>StageSettings</Name>
-                  </Expression>
-                  <Expression xsi:type="PropertyMapping">
-                    <PropertyMappings>
-                      <Property Name="PortName" Selector="Item2" />
-                    </PropertyMappings>
-                  </Expression>
-                  <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="p3:Device">
-                      <harp:OperationMode>Active</harp:OperationMode>
-                      <harp:OperationLed>On</harp:OperationLed>
-                      <harp:DumpRegisters>true</harp:DumpRegisters>
-                      <harp:VisualIndicators>On</harp:VisualIndicators>
-                      <harp:Heartbeat>Enabled</harp:Heartbeat>
-                      <harp:IgnoreErrors>false</harp:IgnoreErrors>
-                      <harp:PortName>COMx</harp:PortName>
-                    </Combinator>
-                  </Expression>
-                  <Expression xsi:type="rx:BehaviorSubject">
-                    <Name>StepperDriver2Events</Name>
-                  </Expression>
-                  <Expression xsi:type="rx:BehaviorSubject" TypeArguments="sys:Boolean">
-                    <rx:Name>SteppersZEROed</rx:Name>
-                  </Expression>
-                  <Expression xsi:type="GroupWorkflow">
-                    <Name>InitialiseStepperDriverSettings</Name>
-                    <Workflow>
-                      <Nodes>
-                        <Expression xsi:type="SubscribeSubject">
-                          <Name>StepperDriver1Events</Name>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="rx:Take">
-                            <rx:Count>20</rx:Count>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="rx:TakeLast">
-                            <rx:Count>1</rx:Count>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="rx:Delay">
-                            <rx:DueTime>PT0.1S</rx:DueTime>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Unit" />
-                        <Expression xsi:type="rx:SelectMany">
-                          <Name>Initialize StepperDriver1</Name>
-                          <Workflow>
-                            <Nodes>
-                              <Expression xsi:type="WorkflowInput">
-                                <Name>Source1</Name>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateInterlockEnabledPayload">
-                                  <p3:InterlockEnabled>Open</p3:InterlockEnabled>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateEnableDriverPayload">
-                                  <p3:EnableDriver>Motor0 Motor1 Motor2</p3:EnableDriver>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateMotor0MaximumRunCurrentPayload">
-                                  <p3:Motor0MaximumRunCurrent>0.5</p3:Motor0MaximumRunCurrent>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateMotor1MaximumRunCurrentPayload">
-                                  <p3:Motor1MaximumRunCurrent>0.5</p3:Motor1MaximumRunCurrent>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateMotor2MaximumRunCurrentPayload">
-                                  <p3:Motor2MaximumRunCurrent>0.5</p3:Motor2MaximumRunCurrent>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateMotor0MicrostepResolutionPayload">
-                                  <p3:Motor0MicrostepResolution>Microstep8</p3:Motor0MicrostepResolution>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateMotor1MicrostepResolutionPayload">
-                                  <p3:Motor1MicrostepResolution>Microstep8</p3:Motor1MicrostepResolution>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateMotor2MicrostepResolutionPayload">
-                                  <p3:Motor2MicrostepResolution>Microstep8</p3:Motor2MicrostepResolution>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateEnableEncodersPayload">
-                                  <p3:EnableEncoders>Encoder0 Encoder1 Encoder2</p3:EnableEncoders>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateResetEncodersPayload">
-                                  <p3:ResetEncoders>Encoder0 Encoder1 Encoder2</p3:ResetEncoders>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateEncoderModePayload">
-                                  <p3:EncoderMode>Position</p3:EncoderMode>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateEncoderSamplingRatePayload">
-                                  <p3:EncoderSamplingRate>Rate100Hz</p3:EncoderSamplingRate>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateAccumulatedStepsSamplingRatePayload">
-                                  <p3:AccumulatedStepsSamplingRate>Rate100Hz</p3:AccumulatedStepsSamplingRate>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateEnableDigitalInputsPayload">
-                                  <p3:EnableDigitalInputs>Input0 Input1 Input2</p3:EnableDigitalInputs>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateInput0OpModePayload">
-                                  <p3:Input0OpMode>StopMotor0OnFalling</p3:Input0OpMode>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateInput1OpModePayload">
-                                  <p3:Input1OpMode>StopMotor1OnFalling</p3:Input1OpMode>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateInput2OpModePayload">
-                                  <p3:Input2OpMode>StopMotor2OnFalling</p3:Input2OpMode>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="Disable">
-                                <Builder xsi:type="PropertyMapping">
-                                  <PropertyMappings>
-                                    <Property Name="Motor0StepInterval" />
-                                  </PropertyMappings>
-                                </Builder>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateMotor0StepIntervalPayload">
-                                  <p3:Motor0StepInterval>280</p3:Motor0StepInterval>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="Disable">
-                                <Builder xsi:type="PropertyMapping">
-                                  <PropertyMappings>
-                                    <Property Name="Motor1StepInterval" />
-                                  </PropertyMappings>
-                                </Builder>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateMotor1StepIntervalPayload">
-                                  <p3:Motor1StepInterval>280</p3:Motor1StepInterval>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="Disable">
-                                <Builder xsi:type="PropertyMapping">
-                                  <PropertyMappings>
-                                    <Property Name="Motor2StepInterval" />
-                                  </PropertyMappings>
-                                </Builder>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateMotor2StepIntervalPayload">
-                                  <p3:Motor2StepInterval>280</p3:Motor2StepInterval>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="Combinator">
-                                <Combinator xsi:type="rx:Concat" />
-                              </Expression>
-                              <Expression xsi:type="MulticastSubject">
-                                <Name>StepperDriver1Commands</Name>
-                              </Expression>
-                              <Expression xsi:type="WorkflowOutput" />
-                            </Nodes>
-                            <Edges>
-                              <Edge From="1" To="24" Label="Source1" />
-                              <Edge From="2" To="24" Label="Source2" />
-                              <Edge From="3" To="24" Label="Source3" />
-                              <Edge From="4" To="24" Label="Source4" />
-                              <Edge From="5" To="24" Label="Source5" />
-                              <Edge From="6" To="24" Label="Source6" />
-                              <Edge From="7" To="24" Label="Source7" />
-                              <Edge From="8" To="24" Label="Source8" />
-                              <Edge From="9" To="24" Label="Source9" />
-                              <Edge From="10" To="24" Label="Source10" />
-                              <Edge From="11" To="24" Label="Source11" />
-                              <Edge From="12" To="24" Label="Source12" />
-                              <Edge From="13" To="24" Label="Source13" />
-                              <Edge From="14" To="24" Label="Source14" />
-                              <Edge From="15" To="24" Label="Source15" />
-                              <Edge From="16" To="24" Label="Source16" />
-                              <Edge From="17" To="24" Label="Source17" />
-                              <Edge From="18" To="19" Label="Source1" />
-                              <Edge From="19" To="24" Label="Source18" />
-                              <Edge From="20" To="21" Label="Source1" />
-                              <Edge From="21" To="24" Label="Source19" />
-                              <Edge From="22" To="23" Label="Source1" />
-                              <Edge From="23" To="24" Label="Source20" />
-                              <Edge From="24" To="25" Label="Source1" />
-                              <Edge From="25" To="26" Label="Source1" />
-                            </Edges>
-                          </Workflow>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="rx:Delay">
-                            <rx:DueTime>PT0.1S</rx:DueTime>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="SubscribeSubject">
-                          <Name>StepperDriver2Events</Name>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="rx:Take">
-                            <rx:Count>20</rx:Count>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="rx:TakeLast">
-                            <rx:Count>1</rx:Count>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="rx:Delay">
-                            <rx:DueTime>PT0.2S</rx:DueTime>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Unit" />
-                        <Expression xsi:type="rx:SelectMany">
-                          <Name>Initialize StepperDriver2</Name>
-                          <Workflow>
-                            <Nodes>
-                              <Expression xsi:type="WorkflowInput">
-                                <Name>Source1</Name>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateInterlockEnabledPayload">
-                                  <p3:InterlockEnabled>Open</p3:InterlockEnabled>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateEnableDriverPayload">
-                                  <p3:EnableDriver>Motor0 Motor1</p3:EnableDriver>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateMotor0MaximumRunCurrentPayload">
-                                  <p3:Motor0MaximumRunCurrent>0.5</p3:Motor0MaximumRunCurrent>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateMotor1MaximumRunCurrentPayload">
-                                  <p3:Motor1MaximumRunCurrent>0.5</p3:Motor1MaximumRunCurrent>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateMotor0MicrostepResolutionPayload">
-                                  <p3:Motor0MicrostepResolution>Microstep8</p3:Motor0MicrostepResolution>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateMotor1MicrostepResolutionPayload">
-                                  <p3:Motor1MicrostepResolution>Microstep8</p3:Motor1MicrostepResolution>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateEnableEncodersPayload">
-                                  <p3:EnableEncoders>Encoder0 Encoder1</p3:EnableEncoders>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateResetEncodersPayload">
-                                  <p3:ResetEncoders>Encoder0 Encoder1</p3:ResetEncoders>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateEncoderModePayload">
-                                  <p3:EncoderMode>Position</p3:EncoderMode>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateEncoderSamplingRatePayload">
-                                  <p3:EncoderSamplingRate>Rate500Hz</p3:EncoderSamplingRate>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateAccumulatedStepsSamplingRatePayload">
-                                  <p3:AccumulatedStepsSamplingRate>Rate100Hz</p3:AccumulatedStepsSamplingRate>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateEnableDigitalInputsPayload">
-                                  <p3:EnableDigitalInputs>Input0 Input1</p3:EnableDigitalInputs>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateInput0OpModePayload">
-                                  <p3:Input0OpMode>StopMotor0OnFalling</p3:Input0OpMode>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateInput1OpModePayload">
-                                  <p3:Input1OpMode>StopMotor1OnFalling</p3:Input1OpMode>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="Disable">
-                                <Builder xsi:type="PropertyMapping">
-                                  <PropertyMappings>
-                                    <Property Name="Motor0StepInterval" />
-                                  </PropertyMappings>
-                                </Builder>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateMotor0StepIntervalPayload">
-                                  <p3:Motor0StepInterval>280</p3:Motor0StepInterval>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="Disable">
-                                <Builder xsi:type="PropertyMapping">
-                                  <PropertyMappings>
-                                    <Property Name="Motor1StepInterval" />
-                                  </PropertyMappings>
-                                </Builder>
-                              </Expression>
-                              <Expression xsi:type="p3:CreateMessage">
-                                <harp:MessageType>Write</harp:MessageType>
-                                <harp:Payload xsi:type="p3:CreateMotor1StepIntervalPayload">
-                                  <p3:Motor1StepInterval>280</p3:Motor1StepInterval>
-                                </harp:Payload>
-                              </Expression>
-                              <Expression xsi:type="Combinator">
-                                <Combinator xsi:type="rx:Concat" />
-                              </Expression>
-                              <Expression xsi:type="MulticastSubject">
-                                <Name>StepperDriver2Commands</Name>
-                              </Expression>
-                              <Expression xsi:type="WorkflowOutput" />
-                            </Nodes>
-                            <Edges>
-                              <Edge From="1" To="19" Label="Source1" />
-                              <Edge From="2" To="19" Label="Source2" />
-                              <Edge From="3" To="19" Label="Source3" />
-                              <Edge From="4" To="19" Label="Source4" />
-                              <Edge From="5" To="19" Label="Source5" />
-                              <Edge From="6" To="19" Label="Source6" />
-                              <Edge From="7" To="19" Label="Source7" />
-                              <Edge From="8" To="19" Label="Source8" />
-                              <Edge From="9" To="19" Label="Source9" />
-                              <Edge From="10" To="19" Label="Source10" />
-                              <Edge From="11" To="19" Label="Source11" />
-                              <Edge From="12" To="19" Label="Source12" />
-                              <Edge From="13" To="19" Label="Source13" />
-                              <Edge From="14" To="19" Label="Source14" />
-                              <Edge From="15" To="16" Label="Source1" />
-                              <Edge From="16" To="19" Label="Source15" />
-                              <Edge From="17" To="18" Label="Source1" />
-                              <Edge From="18" To="19" Label="Source16" />
-                              <Edge From="19" To="20" Label="Source1" />
-                              <Edge From="20" To="21" Label="Source1" />
-                            </Edges>
-                          </Workflow>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="rx:Delay">
-                            <rx:DueTime>PT0.1S</rx:DueTime>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="rx:Zip" />
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="BooleanProperty">
-                            <Value>true</Value>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="rx:BehaviorSubject">
-                          <Name>StepperDriversInitialized</Name>
-                        </Expression>
-                        <Expression xsi:type="Annotation">
-                          <Name>Ensure I get the initial states</Name>
-                          <Text><![CDATA[]]></Text>
-                        </Expression>
-                        <Expression xsi:type="p3:CreateMessage">
-                          <harp:MessageType>Read</harp:MessageType>
-                          <harp:Payload xsi:type="p3:CreateDigitalInputStatePayload">
-                            <p3:DigitalInputState>None</p3:DigitalInputState>
-                          </harp:Payload>
-                        </Expression>
-                        <Expression xsi:type="MulticastSubject">
-                          <Name>StepperDriver1Commands</Name>
-                        </Expression>
-                        <Expression xsi:type="MulticastSubject">
-                          <Name>StepperDriver2Commands</Name>
-                        </Expression>
-                      </Nodes>
-                      <Edges>
-                        <Edge From="0" To="1" Label="Source1" />
-                        <Edge From="1" To="2" Label="Source1" />
-                        <Edge From="2" To="3" Label="Source1" />
-                        <Edge From="3" To="4" Label="Source1" />
-                        <Edge From="4" To="5" Label="Source1" />
-                        <Edge From="5" To="6" Label="Source1" />
-                        <Edge From="6" To="14" Label="Source1" />
-                        <Edge From="7" To="8" Label="Source1" />
-                        <Edge From="8" To="9" Label="Source1" />
-                        <Edge From="9" To="10" Label="Source1" />
-                        <Edge From="10" To="11" Label="Source1" />
-                        <Edge From="11" To="12" Label="Source1" />
-                        <Edge From="12" To="13" Label="Source1" />
-                        <Edge From="13" To="14" Label="Source2" />
-                        <Edge From="14" To="15" Label="Source1" />
-                        <Edge From="15" To="16" Label="Source1" />
-                        <Edge From="16" To="18" Label="Source1" />
-                        <Edge From="17" To="18" Label="Source2" />
-                        <Edge From="18" To="19" Label="Source1" />
-                        <Edge From="18" To="20" Label="Source1" />
-                      </Edges>
-                    </Workflow>
-                  </Expression>
-                  <Expression xsi:type="GroupWorkflow">
-                    <Name>ReadSwitchStates</Name>
-                    <Workflow>
-                      <Nodes>
-                        <Expression xsi:type="SubscribeSubject">
-                          <Name>StepperDriver1Events</Name>
-                        </Expression>
-                        <Expression xsi:type="p3:Parse">
-                          <harp:Register xsi:type="p3:DigitalInputState" />
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="vc:UnpackSwitchTriggers" />
-                        </Expression>
-                        <Expression xsi:type="Index">
-                          <Operand xsi:type="IntProperty">
-                            <Value>0</Value>
-                          </Operand>
-                        </Expression>
-                        <Expression xsi:type="rx:BehaviorSubject">
-                          <Name>_Motor0_switchState</Name>
-                        </Expression>
-                        <Expression xsi:type="Index">
-                          <Operand xsi:type="IntProperty">
-                            <Value>1</Value>
-                          </Operand>
-                        </Expression>
-                        <Expression xsi:type="rx:BehaviorSubject">
-                          <Name>_Motor1_switchState</Name>
-                        </Expression>
-                        <Expression xsi:type="Index">
-                          <Operand xsi:type="IntProperty">
-                            <Value>2</Value>
-                          </Operand>
-                        </Expression>
-                        <Expression xsi:type="rx:BehaviorSubject">
-                          <Name>_Motor2_switchState</Name>
-                        </Expression>
-                        <Expression xsi:type="SubscribeSubject">
-                          <Name>StepperDriver2Events</Name>
-                        </Expression>
-                        <Expression xsi:type="p3:Parse">
-                          <harp:Register xsi:type="p3:DigitalInputState" />
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="vc:UnpackSwitchTriggers" />
-                        </Expression>
-                        <Expression xsi:type="Index">
-                          <Operand xsi:type="IntProperty">
-                            <Value>0</Value>
-                          </Operand>
-                        </Expression>
-                        <Expression xsi:type="rx:BehaviorSubject">
-                          <Name>_Motor3_switchState</Name>
-                        </Expression>
-                        <Expression xsi:type="Index">
-                          <Operand xsi:type="IntProperty">
-                            <Value>1</Value>
-                          </Operand>
-                        </Expression>
-                        <Expression xsi:type="rx:BehaviorSubject">
-                          <Name>_Motor4_switchState</Name>
-                        </Expression>
-                      </Nodes>
-                      <Edges>
-                        <Edge From="0" To="1" Label="Source1" />
-                        <Edge From="1" To="2" Label="Source1" />
-                        <Edge From="2" To="3" Label="Source1" />
-                        <Edge From="2" To="5" Label="Source1" />
-                        <Edge From="2" To="7" Label="Source1" />
-                        <Edge From="3" To="4" Label="Source1" />
-                        <Edge From="5" To="6" Label="Source1" />
-                        <Edge From="7" To="8" Label="Source1" />
-                        <Edge From="9" To="10" Label="Source1" />
-                        <Edge From="10" To="11" Label="Source1" />
-                        <Edge From="11" To="12" Label="Source1" />
-                        <Edge From="11" To="14" Label="Source1" />
-                        <Edge From="12" To="13" Label="Source1" />
-                        <Edge From="14" To="15" Label="Source1" />
-                      </Edges>
-                    </Workflow>
-                  </Expression>
-                  <Expression xsi:type="GroupWorkflow">
-                    <Name>ZEROMotors</Name>
-                    <Description>av-dome's zeroing (its ZEROMotors, Extensions\ZEROingMotors.bonsai): once both boards are set up, each of the five motors moves off its home switch if it is on it, then back until the switch, where its count is set to 0. 2 s after the last, SteppersZEROed. A plain Delay where av-dome waits on the Harp clock (HarpDelay): this workflow has no timestamp generator. The watchdog ends the workflow, naming the stages still missing, if zeroing has not finished 60 s from the start.</Description>
-                    <Workflow>
-                      <Nodes>
-                        <Expression xsi:type="IncludeWorkflow" Path="Extensions\ZEROingMotors.bonsai">
-                          <SubjectName_switchState>_Motor0_switchState</SubjectName_switchState>
-                          <MotorID>0</MotorID>
-                          <SubjectName_StepperDriver>StepperDriver1Commands</SubjectName_StepperDriver>
-                          <SubjectName_switchState_again>_Motor0_switchState</SubjectName_switchState_again>
-                        </Expression>
-                        <Expression xsi:type="IncludeWorkflow" Path="Extensions\ZEROingMotors.bonsai">
-                          <SubjectName_switchState>_Motor1_switchState</SubjectName_switchState>
-                          <MotorID>1</MotorID>
-                          <SubjectName_StepperDriver>StepperDriver1Commands</SubjectName_StepperDriver>
-                          <SubjectName_switchState_again>_Motor1_switchState</SubjectName_switchState_again>
-                        </Expression>
-                        <Expression xsi:type="IncludeWorkflow" Path="Extensions\ZEROingMotors.bonsai">
-                          <SubjectName_switchState>_Motor2_switchState</SubjectName_switchState>
-                          <MotorID>2</MotorID>
-                          <SubjectName_StepperDriver>StepperDriver1Commands</SubjectName_StepperDriver>
-                          <SubjectName_switchState_again>_Motor2_switchState</SubjectName_switchState_again>
-                        </Expression>
-                        <Expression xsi:type="IncludeWorkflow" Path="Extensions\ZEROingMotors.bonsai">
-                          <SubjectName_switchState>_Motor3_switchState</SubjectName_switchState>
-                          <MotorID>0</MotorID>
-                          <SubjectName_StepperDriver>StepperDriver2Commands</SubjectName_StepperDriver>
-                          <SubjectName_switchState_again>_Motor3_switchState</SubjectName_switchState_again>
-                        </Expression>
-                        <Expression xsi:type="IncludeWorkflow" Path="Extensions\ZEROingMotors.bonsai">
-                          <SubjectName_switchState>_Motor4_switchState</SubjectName_switchState>
-                          <MotorID>1</MotorID>
-                          <SubjectName_StepperDriver>StepperDriver2Commands</SubjectName_StepperDriver>
-                          <SubjectName_switchState_again>_Motor4_switchState</SubjectName_switchState_again>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="rx:Zip" />
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="rx:Delay">
-                            <rx:DueTime>PT2S</rx:DueTime>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="BooleanProperty">
-                            <Value>true</Value>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="MulticastSubject">
-                          <Name>SteppersZEROed</Name>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="StringProperty">
-                            <Value>Motor0</Value>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="StringProperty">
-                            <Value>Motor1</Value>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="StringProperty">
-                            <Value>Motor2</Value>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="StringProperty">
-                            <Value>Motor3</Value>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="StringProperty">
-                            <Value>Motor4</Value>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="StringProperty">
-                            <Value>AllZeroed</Value>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="StringProperty">
-                            <Value>Settled</Value>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="SubscribeSubject">
-                          <Name>StepperDriversInitialized</Name>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="rx:Take">
-                            <rx:Count>1</rx:Count>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="StringProperty">
-                            <Value>StepperDriversInitialized</Value>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="rx:Merge" />
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="vc:StartupWatchdog">
-                            <vc:Expected>StepperDriversInitialized, Motor0, Motor1, Motor2, Motor3, Motor4, AllZeroed, Settled</vc:Expected>
-                            <vc:TimeoutSeconds>60</vc:TimeoutSeconds>
-                            <vc:What>Zeroing the spout steppers (needed for Ready)</vc:What>
-                          </Combinator>
-                        </Expression>
-                      </Nodes>
-                      <Edges>
-                        <Edge From="0" To="5" Label="Source1" />
-                        <Edge From="1" To="5" Label="Source2" />
-                        <Edge From="2" To="5" Label="Source3" />
-                        <Edge From="3" To="5" Label="Source4" />
-                        <Edge From="4" To="5" Label="Source5" />
-                        <Edge From="5" To="6" Label="Source1" />
-                        <Edge From="6" To="7" Label="Source1" />
-                        <Edge From="7" To="8" Label="Source1" />
-                        <Edge From="0" To="9" Label="Source1" />
-                        <Edge From="1" To="10" Label="Source1" />
-                        <Edge From="2" To="11" Label="Source1" />
-                        <Edge From="3" To="12" Label="Source1" />
-                        <Edge From="4" To="13" Label="Source1" />
-                        <Edge From="5" To="14" Label="Source1" />
-                        <Edge From="6" To="15" Label="Source1" />
-                        <Edge From="16" To="17" Label="Source1" />
-                        <Edge From="17" To="18" Label="Source1" />
-                        <Edge From="18" To="19" Label="Source1" />
-                        <Edge From="9" To="19" Label="Source2" />
-                        <Edge From="10" To="19" Label="Source3" />
-                        <Edge From="11" To="19" Label="Source4" />
-                        <Edge From="12" To="19" Label="Source5" />
-                        <Edge From="13" To="19" Label="Source6" />
-                        <Edge From="14" To="19" Label="Source7" />
-                        <Edge From="15" To="19" Label="Source8" />
-                        <Edge From="19" To="20" Label="Source1" />
-                      </Edges>
-                    </Workflow>
-                  </Expression>
-                  <Expression xsi:type="SubscribeSubject">
-                    <Name>SteppersZEROed</Name>
-                  </Expression>
-                  <Expression xsi:type="rx:Condition">
-                    <Name>Zeroed?</Name>
-                    <Workflow>
-                      <Nodes>
-                        <Expression xsi:type="WorkflowInput">
-                          <Name>Source1</Name>
-                        </Expression>
-                        <Expression xsi:type="scr:ExpressionTransform">
-                          <scr:Expression>it</scr:Expression>
-                        </Expression>
-                        <Expression xsi:type="WorkflowOutput" />
-                      </Nodes>
-                      <Edges>
-                        <Edge From="0" To="1" Label="Source1" />
-                        <Edge From="1" To="2" Label="Source1" />
-                      </Edges>
-                    </Workflow>
-                  </Expression>
-                  <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="rx:Take">
-                      <rx:Count>1</rx:Count>
-                    </Combinator>
-                  </Expression>
-                  <Expression xsi:type="SubscribeSubject">
-                    <Name>StageSettings</Name>
-                  </Expression>
-                  <Expression xsi:type="MemberSelector">
-                    <Selector>Item3</Selector>
-                  </Expression>
-                  <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="rx:Zip" />
-                  </Expression>
-                  <Expression xsi:type="MemberSelector">
-                    <Selector>Item2</Selector>
-                  </Expression>
-                  <Expression xsi:type="IncludeWorkflow" Path="Extensions\MoveStepperMotors.bonsai" />
-                  <Expression xsi:type="scr:ExpressionTransform">
-                    <scr:Expression>TimeSpan.FromSeconds(0.5 + 0.00028 * Math.Max(Math.Max(Math.Max(Math.Abs(it.Item1), Math.Abs(it.Item2)), Math.Max(Math.Abs(it.Item3), Math.Abs(it.Item4))), Math.Abs(it.Item5)))</scr:Expression>
-                  </Expression>
-                  <Expression xsi:type="rx:SelectMany">
-                    <Name>WaitForTheMove</Name>
-                    <Description>Waits the time the longest move takes (its steps at the boards' 280 us a step, plus 0.5 s), mapped onto the Delay from a subject, so the Delay has its time before it starts.</Description>
-                    <Workflow>
-                      <Nodes>
-                        <Expression xsi:type="WorkflowInput">
-                          <Name>Source1</Name>
-                        </Expression>
-                        <Expression xsi:type="rx:AsyncSubject">
-                          <Name>MoveTime</Name>
-                        </Expression>
-                        <Expression xsi:type="SubscribeSubject">
-                          <Name>MoveTime</Name>
-                        </Expression>
-                        <Expression xsi:type="PropertyMapping">
-                          <PropertyMappings>
-                            <Property Name="DueTime" />
-                          </PropertyMappings>
-                        </Expression>
-                        <Expression xsi:type="SubscribeSubject">
-                          <Name>MoveTime</Name>
-                        </Expression>
-                        <Expression xsi:type="Combinator">
-                          <Combinator xsi:type="rx:Delay">
-                            <rx:DueTime>PT30S</rx:DueTime>
-                          </Combinator>
-                        </Expression>
-                        <Expression xsi:type="WorkflowOutput" />
-                      </Nodes>
-                      <Edges>
-                        <Edge From="0" To="1" Label="Source1" />
-                        <Edge From="2" To="3" Label="Source1" />
-                        <Edge From="4" To="5" Label="Source1" />
-                        <Edge From="3" To="5" Label="Source2" />
-                        <Edge From="5" To="6" Label="Source1" />
-                      </Edges>
-                    </Workflow>
-                  </Expression>
-                  <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="BooleanProperty">
-                      <Value>true</Value>
-                    </Combinator>
-                  </Expression>
-                  <Expression xsi:type="MulticastSubject">
-                    <Name>SpoutsReady</Name>
-                  </Expression>
-                  <Expression xsi:type="SubscribeSubject">
-                    <Name>CalibrationWeights</Name>
-                  </Expression>
-                  <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="rx:TakeLast">
-                      <rx:Count>1</rx:Count>
-                    </Combinator>
-                  </Expression>
-                  <Expression xsi:type="SubscribeSubject">
-                    <Name>StageSettings</Name>
-                  </Expression>
-                  <Expression xsi:type="MemberSelector">
-                    <Selector>Item3</Selector>
-                  </Expression>
-                  <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="rx:WithLatestFrom" />
-                  </Expression>
-                  <Expression xsi:type="MemberSelector">
-                    <Selector>Item2</Selector>
-                  </Expression>
-                  <Expression xsi:type="scr:ExpressionTransform">
-                    <scr:Expression>new(it.Item1 as Item1, it.Item2 as Item2, it.Item3 as Item3, it.Item4 as Item4, it.Item5 as Item5)</scr:Expression>
-                  </Expression>
-                  <Expression xsi:type="IncludeWorkflow" Path="Extensions\MoveStepperMotors.bonsai" />
-                  <Expression xsi:type="WorkflowOutput" />
-                  <Expression xsi:type="SubscribeSubject">
-                    <Name>StageSettings</Name>
-                  </Expression>
-                  <Expression xsi:type="MemberSelector">
-                    <Selector>Item3</Selector>
-                  </Expression>
-                  <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="rx:WithLatestFrom" />
-                  </Expression>
-                  <Expression xsi:type="MemberSelector">
-                    <Selector>Item2</Selector>
-                  </Expression>
-                  <Expression xsi:type="scr:ExpressionTransform">
-                    <scr:Expression>new(it.Item1 as Item1, 15000 as Item2, 15000 as Item3, it.Item4 as Item4, it.Item5 as Item5)</scr:Expression>
-                  </Expression>
-                  <Expression xsi:type="IncludeWorkflow" Path="Extensions\MoveStepperMotors.bonsai" />
-                  <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="rx:Delay">
-                      <rx:DueTime>PT5S</rx:DueTime>
-                    </Combinator>
-                  </Expression>
-                </Nodes>
-                <Edges>
-                  <Edge From="0" To="1" Label="Source1" />
-                  <Edge From="2" To="5" Label="Source1" />
-                  <Edge From="3" To="4" Label="Source1" />
-                  <Edge From="4" To="5" Label="Source2" />
-                  <Edge From="5" To="6" Label="Source1" />
-                  <Edge From="7" To="10" Label="Source1" />
-                  <Edge From="8" To="9" Label="Source1" />
-                  <Edge From="9" To="10" Label="Source2" />
-                  <Edge From="10" To="11" Label="Source1" />
-                  <Edge From="16" To="17" Label="Source1" />
-                  <Edge From="17" To="18" Label="Source1" />
-                  <Edge From="19" To="20" Label="Source1" />
-                  <Edge From="18" To="21" Label="Source1" />
-                  <Edge From="20" To="21" Label="Source2" />
-                  <Edge From="21" To="22" Label="Source1" />
-                  <Edge From="22" To="23" Label="Source1" />
-                  <Edge From="22" To="24" Label="Source1" />
-                  <Edge From="24" To="25" Label="Source1" />
-                  <Edge From="25" To="39" Label="Source1" />
-                  <Edge From="37" To="38" Label="Source1" />
-                  <Edge From="38" To="39" Label="Source2" />
-                  <Edge From="39" To="40" Label="Source1" />
-                  <Edge From="40" To="41" Label="Source1" />
-                  <Edge From="41" To="42" Label="Source1" />
-                  <Edge From="41" To="43" Label="Source1" />
-                  <Edge From="43" To="26" Label="Source1" />
-                  <Edge From="26" To="27" Label="Source1" />
-                  <Edge From="27" To="36" Label="Source1" />
-                  <Edge From="28" To="29" Label="Source1" />
-                  <Edge From="30" To="31" Label="Source1" />
-                  <Edge From="29" To="32" Label="Source1" />
-                  <Edge From="31" To="32" Label="Source2" />
-                  <Edge From="32" To="33" Label="Source1" />
-                  <Edge From="33" To="34" Label="Source1" />
-                  <Edge From="34" To="35" Label="Source1" />
-                </Edges>
-              </Workflow>
-            </Expression>
-            <Expression xsi:type="rx:Condition">
-              <Name>NoStage?</Name>
-              <Workflow>
-                <Nodes>
-                  <Expression xsi:type="WorkflowInput">
-                    <Name>Source1</Name>
-                  </Expression>
-                  <Expression xsi:type="scr:ExpressionTransform">
-                    <scr:Expression>it.Item1 == ""</scr:Expression>
-                  </Expression>
-                  <Expression xsi:type="WorkflowOutput" />
-                </Nodes>
-                <Edges>
-                  <Edge From="0" To="1" Label="Source1" />
-                  <Edge From="1" To="2" Label="Source1" />
-                </Edges>
-              </Workflow>
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="BooleanProperty">
-                <Value>true</Value>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="MulticastSubject">
-              <Name>SpoutsReady</Name>
-            </Expression>
-          </Nodes>
-          <Edges>
-            <Edge From="0" To="1" Label="Source1" />
-            <Edge From="2" To="3" Label="Source1" />
-            <Edge From="4" To="5" Label="Source1" />
-            <Edge From="6" To="7" Label="Source1" />
-            <Edge From="8" To="9" Label="Source1" />
-            <Edge From="10" To="11" Label="Source1" />
-            <Edge From="12" To="13" Label="Source1" />
-            <Edge From="5" To="14" Label="Source1" />
-            <Edge From="7" To="14" Label="Source2" />
-            <Edge From="9" To="14" Label="Source3" />
-            <Edge From="11" To="14" Label="Source4" />
-            <Edge From="13" To="14" Label="Source5" />
-            <Edge From="1" To="15" Label="Source1" />
-            <Edge From="3" To="15" Label="Source2" />
-            <Edge From="14" To="15" Label="Source3" />
-            <Edge From="15" To="16" Label="Source1" />
-            <Edge From="16" To="17" Label="Source1" />
-            <Edge From="17" To="18" Label="Source1" />
-            <Edge From="16" To="19" Label="Source1" />
-            <Edge From="19" To="20" Label="Source1" />
-            <Edge From="20" To="21" Label="Source1" />
-          </Edges>
-        </Workflow>
+      <Expression xsi:type="IncludeWorkflow" Path="Extensions\Spouts.bonsai">
+        <PositionsFile />
+        <SpoutsForwardSteps>15000</SpoutsForwardSteps>
+        <DoneSubjectName>CalibrationWeights</DoneSubjectName>
+        <DoneCommand>SpoutsIn</DoneCommand>
       </Expression>
       <Expression xsi:type="lv:StreamDevices">
         <Name>LiveView</Name>
@@ -2033,9 +1134,8 @@
     <Edges>
       <Edge From="0" To="1" Label="Source1" />
       <Edge From="2" To="3" Label="Source1" />
-      <Edge From="4" To="5" Label="Source1" />
-      <Edge From="6" To="7" Label="Source1" />
-      <Edge From="9" To="10" Label="Source1" />
+      <Edge From="5" To="6" Label="Source1" />
+      <Edge From="8" To="9" Label="Source1" />
     </Edges>
   </Workflow>
 </WorkflowBuilder>
