@@ -1,0 +1,18 @@
+# An arena's rig.yml as the valve calibration reads it: a behavior board with two reward valves
+# and no lick spout stage. Written from the plan (13 Nov 2026), not copied from a rig: no arena
+# rig.yml was on the share then.
+behaviorBoard:
+  main:
+    portName: COM4
+    usbSerial: 'AB0M7XYZ'
+    pulseController:
+      outputPulseEnable: DO1, DO2
+      outputs:
+        DO1: { discriminatorType: CalibratedPulse, artefact: calibration/valve-DO1.json }
+        DO2: { discriminatorType: FixedPulse, pulseWidthMs: 40 }
+    wiring:
+      DO1: { device: RewardValve, side: left }
+      DO2: { device: RewardValve, side: right }
+      DO3: { device: Photodiode }
+rigId: A1
+rootPath: C:\Coen-Lab-Local\Acquired-Data

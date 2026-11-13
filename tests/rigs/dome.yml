@@ -1,0 +1,23 @@
+# A dome's rig.yml, the parts the valve calibration reads (lib-open-rigs' Dome Building Blocks
+# example): two reward valves, the Zapit trigger on DO3, and the lick spout stage's two drivers.
+behaviorBoard:
+  main:
+    portName: COM3
+    usbSerial: AB0M7PLB
+    pulseController:
+      outputPulseEnable: "DO1, DO2, DO3"
+      outputs:
+        DO1: { discriminatorType: CalibratedPulse, artefact: calibration/valve-DO1.json }
+        DO2: { discriminatorType: CalibratedPulse, artefact: calibration/valve-DO2.json }
+        DO3: { discriminatorType: FixedPulse, pulseWidthMs: 0 }
+    wiring:
+      DO0: { device: CameraTrigger, targets: [Camera-Face, Camera-Pupil, Camera-Body] }
+      DO1: { device: RewardValve, side: left }
+      DO2: { device: RewardValve, side: right }
+      DO3: { device: ZapitTrigger, note: also the masking light }
+stepperDriver:
+  a: { portName: COM5, usbSerial: AB0AAAAA }
+  b: { portName: COM6, usbSerial: AB0BBBBB }
+lickSpoutDefaultPosition: { baseTransverse: 1000, leftRadial: 2000, rightRadial: 2000, leftElevation: 3000, rightElevation: 3000 }
+zapit: { host: 127.0.0.1, port: 1488, hardwareTriggered: true }
+rootPath: C:\Coen-Lab-Local\Acquired-Data

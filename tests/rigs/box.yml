@@ -1,0 +1,29 @@
+# A behaviour box's rig.yml (GEEK-BBOX1's, 13 Nov 2026) with one reward valve wired on DO1: what
+# the valve calibration reads from a box. Its camera and wheel are read by no part of it.
+behaviorBoard:
+  main:
+    cameraTriggerController:
+      trigger0Frequency: 50
+      trigger1Frequency: 50
+    portName: COM3
+    usbSerial: 'AB0M7PLB'
+    pulseController:
+      outputPulseEnable: DO1
+      outputs:
+        DO1: { discriminatorType: CalibratedPulse, artefact: calibration/valve-DO1.json }
+    runningWheel:
+      countsPerRev: 4096
+      wheelDiameterMm: 150.0
+    wiring:
+      DO0: { device: CameraTrigger, targets: [Camera-Box] }
+      DO1: { device: RewardValve }
+camera:
+  box:
+    binning: 1
+    discriminatorType: SpinnakerCamera
+    exposureTime: 3000.0
+    gain: 1.0
+    serialNumber: '23201539'
+    triggerFrequency: 50.0
+rigId: B1
+rootPath: C:\Coen-Lab-Local\Acquired-Data
