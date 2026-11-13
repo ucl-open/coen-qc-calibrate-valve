@@ -1,5 +1,5 @@
 # Settings of the valve calibration (OpenRigs.Core DispenseCalibration's form), read at Start by
-# src\main.bonsai for the bursts and by rig-control for the fit (densityGPerMl, requireMonotone).
+# src\main.bonsai for the bursts and by rig-control for the fit (densityGPerMl).
 # The fit is rig-control's Python (a LinearFit), never Bonsai's. The valve lines, the board's port
 # and the stage come from the rig's own rig.yml; the run's lines and file name from rig-control's
 # launch; never from here.
@@ -48,4 +48,3 @@ procedure:
   densityGPerMl: 1.0
   settleWindow: 1
   weighTimeoutS: 3600
-  requireMonotone: true
