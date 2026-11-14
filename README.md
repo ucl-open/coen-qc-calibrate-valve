@@ -29,7 +29,7 @@ The balance is read by eye: the workflow runs `OpenRigs.Devices:ManualBalance.bo
 
 ## The Balance, Read from the Camera
 
-The body camera can see the balance's display, so rig-control's Calibrations page reads the weights itself. Each `Snapshot` command (its text a file name) saves the camera's latest frame, full size, as `calibration\images\<text>.jpg` beside rig.yml. The page asks for one once each weight is due, reads the display from it and sends the number with `Weight`, as a person would. The workflow does not know who read it. See rig-control's README for the reading, its checks and the review at the end.
+The calibration camera, a USB camera on the balance that is in no rig.yml (Pip, 10 Nov 2026: a different one on each rig), sees the balance's display, so rig-control's Calibrations page reads the weights itself. `OpenRigs.Video` `UsbCamera` opens the first camera that is not one of the rig's own; with none plugged in the workflow stops at Start, saying so. Each `Snapshot` command (its text a file name) saves the camera's latest frame, full size, as `calibration\images\<text>.jpg` beside rig.yml. The page asks for one once each weight is due, reads the display from it and sends the number with `Weight`, as a person would. The workflow does not know who read it. See rig-control's README for the reading, its checks and the review at the end.
 
 ## A Run
 

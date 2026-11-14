@@ -5,7 +5,7 @@
                  xmlns:dev="clr-namespace:OpenRigs.Devices;assembly=OpenRigs.Devices"
                  xmlns:vc="clr-namespace:CoenQcCalibrateValve;assembly=Extensions"
                  xmlns="https://bonsai-rx.org/2018/workflow">
-  <Description>The spouts during a calibration or a delivery, so the drops land as in a session (Pip, 10 Nov 2026). On a rig whose rig.yml has a lick spout stage (ValveRig's HasStage: stepperDriver a and b), Stage runs OpenRigs.Devices HarpLickSpoutStage on StepperDriver-A and -B: it homes every motor and moves the spouts to rig.yml's lickSpoutDefaultPosition (ValveRig's PositionsFile is never a file, since a calibration is no mouse's); once that move has had its time, both radial (in/out) axes go to SpoutsForwardSteps from home (0: they stay in), and SpoutsReady once that move has had its time too. Once the DoneSubjectName subject ends, DoneCommand moves the stage. On a rig without a stage, SpoutsReady at once and nothing moves. Needs the ValveRig and SpoutsReady subjects.</Description>
+  <Description>The spouts during a calibration or a delivery, so the drops land as in a session (Pip, 10 Nov 2026). On a rig whose rig.yml has a lick spout stage (ValveRig's HasStage: stepperDriver a and b), Stage runs OpenRigs.Devices HarpLickSpoutStage on StepperDriver-A and -B: it homes every motor and moves the spouts to rig.yml's lickSpoutDefaultPosition (ValveRig's PositionsFile is never a file, since a calibration is no mouse's); once that move has had its time, both radial (in/out) axes go to SpoutsForwardSteps from home (0: they stay in), and SpoutsReady once that move has had its time too. Once the DoneSubjectName subject ends, DoneCommand moves the stage. On a rig without a stage, SpoutsReady at once and nothing moves. The StepperDriver-A and -B subjects are made here, outside Stage, and Stage starts only once both have their entry (the Zip): made inside Stage, they got it only after HarpLickSpoutStage had opened the drivers, which then opened on no port and stopped the workflow on every dome (BLUE-OPTO-2, 14 Nov 2026). Needs the ValveRig and SpoutsReady subjects.</Description>
   <Workflow>
     <Nodes>
       <Expression xsi:type="SubscribeSubject">
@@ -41,17 +41,8 @@
             <Expression xsi:type="WorkflowInput">
               <Name>Source1</Name>
             </Expression>
-            <Expression xsi:type="MemberSelector">
-              <Selector>StepperDriverA</Selector>
-            </Expression>
-            <Expression xsi:type="rx:AsyncSubject">
-              <Name>StepperDriver-A</Name>
-            </Expression>
-            <Expression xsi:type="MemberSelector">
-              <Selector>StepperDriverB</Selector>
-            </Expression>
-            <Expression xsi:type="rx:AsyncSubject">
-              <Name>StepperDriver-B</Name>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>ValveRig</Name>
             </Expression>
             <Expression xsi:type="PropertyMapping">
               <PropertyMappings>
@@ -122,26 +113,22 @@
             <Expression xsi:type="WorkflowOutput" />
           </Nodes>
           <Edges>
-            <Edge From="0" To="1" Label="Source1" />
             <Edge From="1" To="2" Label="Source1" />
-            <Edge From="0" To="3" Label="Source1" />
-            <Edge From="3" To="4" Label="Source1" />
-            <Edge From="0" To="5" Label="Source1" />
+            <Edge From="2" To="3" Label="Source1" />
+            <Edge From="4" To="5" Label="Source1" />
             <Edge From="5" To="6" Label="Source1" />
-            <Edge From="7" To="8" Label="Source1" />
+            <Edge From="6" To="8" Label="Source1" />
+            <Edge From="7" To="8" Label="Source2" />
             <Edge From="8" To="9" Label="Source1" />
-            <Edge From="9" To="11" Label="Source1" />
-            <Edge From="10" To="11" Label="Source2" />
+            <Edge From="9" To="10" Label="Source1" />
+            <Edge From="10" To="11" Label="Source1" />
             <Edge From="11" To="12" Label="Source1" />
-            <Edge From="12" To="13" Label="Source1" />
             <Edge From="13" To="14" Label="Source1" />
             <Edge From="14" To="15" Label="Source1" />
-            <Edge From="16" To="17" Label="Source1" />
+            <Edge From="15" To="17" Label="Source1" />
+            <Edge From="16" To="17" Label="Source2" />
             <Edge From="17" To="18" Label="Source1" />
-            <Edge From="18" To="20" Label="Source1" />
-            <Edge From="19" To="20" Label="Source2" />
-            <Edge From="20" To="21" Label="Source1" />
-            <Edge From="21" To="22" Label="Source1" />
+            <Edge From="18" To="19" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
@@ -176,10 +163,37 @@
       <Expression xsi:type="MulticastSubject">
         <Name>SpoutsReady</Name>
       </Expression>
+      <Expression xsi:type="MemberSelector">
+        <Selector>StepperDriverA</Selector>
+      </Expression>
+      <Expression xsi:type="rx:AsyncSubject">
+        <Name>StepperDriver-A</Name>
+      </Expression>
+      <Expression xsi:type="MemberSelector">
+        <Selector>StepperDriverB</Selector>
+      </Expression>
+      <Expression xsi:type="rx:AsyncSubject">
+        <Name>StepperDriver-B</Name>
+      </Expression>
+      <Expression xsi:type="SubscribeSubject">
+        <Name>StepperDriver-A</Name>
+      </Expression>
+      <Expression xsi:type="SubscribeSubject">
+        <Name>StepperDriver-B</Name>
+      </Expression>
+      <Expression xsi:type="Combinator">
+        <Combinator xsi:type="rx:Zip" />
+      </Expression>
     </Nodes>
     <Edges>
       <Edge From="0" To="1" Label="Source1" />
-      <Edge From="1" To="3" Label="Source1" />
+      <Edge From="1" To="8" Label="Source1" />
+      <Edge From="8" To="9" Label="Source1" />
+      <Edge From="1" To="10" Label="Source1" />
+      <Edge From="10" To="11" Label="Source1" />
+      <Edge From="12" To="14" Label="Source1" />
+      <Edge From="13" To="14" Label="Source2" />
+      <Edge From="14" To="3" Label="Source1" />
       <Edge From="2" To="3" Label="Source2" />
       <Edge From="4" To="5" Label="Source1" />
       <Edge From="5" To="6" Label="Source1" />
