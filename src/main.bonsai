@@ -908,7 +908,7 @@
             </Expression>
             <Expression xsi:type="rx:SelectMany">
               <Name>WritePulses</Name>
-              <Description>The board's own record of every pulse, beside the weights: each write the behavior board answers, stamped with its clock, to calibration\&lt;FileName&gt;-pulses.csv (columns Seconds, Register, Value; replaced every run). OutputSet is a line set (Value its lines as a number: DO1 = 2048, DO2 = 4096, DO3 = 8192), the start of a pulse as the board did it; PulseDO1 to PulseDO3 the width written just before, in ms. Bursts are timed on the board's Harp clock (FirePulses); these rows show what the board really fired. Opened once its path is known, as WriteWeights, and closed with the last weighing.</Description>
+              <Description>The board's own record of every pulse, beside the weights: each write the behavior board answers, stamped with its clock, to calibration\&lt;FileName&gt;-pulses.csv (columns harpTime, Register, Value; replaced every run). OutputSet is a line set (Value its lines as a number: DO1 = 2048, DO2 = 4096, DO3 = 8192), the start of a pulse as the board did it; PulseDO1 to PulseDO3 the width written just before, in ms. Bursts are timed on the board's Harp clock (FirePulses); these rows show what the board really fired. Opened once its path is known, as WriteWeights, and closed with the last weighing.</Description>
               <Workflow>
                 <Nodes>
                   <Expression xsi:type="WorkflowInput">
@@ -932,25 +932,25 @@
                     <harp:Register xsi:type="beh:TimestampedOutputSet" />
                   </Expression>
                   <Expression xsi:type="scr:ExpressionTransform">
-                    <scr:Expression>new(Seconds, "OutputSet" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
+                    <scr:Expression>new(Seconds as harpTime, "OutputSet" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
                   </Expression>
                   <Expression xsi:type="beh:Parse">
                     <harp:Register xsi:type="beh:TimestampedPulseDO1" />
                   </Expression>
                   <Expression xsi:type="scr:ExpressionTransform">
-                    <scr:Expression>new(Seconds, "PulseDO1" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
+                    <scr:Expression>new(Seconds as harpTime, "PulseDO1" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
                   </Expression>
                   <Expression xsi:type="beh:Parse">
                     <harp:Register xsi:type="beh:TimestampedPulseDO2" />
                   </Expression>
                   <Expression xsi:type="scr:ExpressionTransform">
-                    <scr:Expression>new(Seconds, "PulseDO2" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
+                    <scr:Expression>new(Seconds as harpTime, "PulseDO2" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
                   </Expression>
                   <Expression xsi:type="beh:Parse">
                     <harp:Register xsi:type="beh:TimestampedPulseDO3" />
                   </Expression>
                   <Expression xsi:type="scr:ExpressionTransform">
-                    <scr:Expression>new(Seconds, "PulseDO3" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
+                    <scr:Expression>new(Seconds as harpTime, "PulseDO3" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
                   </Expression>
                   <Expression xsi:type="Combinator">
                     <Combinator xsi:type="rx:Merge" />
