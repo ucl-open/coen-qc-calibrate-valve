@@ -7,7 +7,7 @@
   <ItemGroup>
     <PackageReference Include="Bonsai.Core" Version="2.9.0" />
     <PackageReference Include="Harp.Behavior" Version="0.2.0" />
-    <PackageReference Include="OpenRigs.Core" Version="0.1.1-coen-lab.7" />
+    <PackageReference Include="OpenRigs.Core" Version="0.1.1-coen-lab.8" />
     <PackageReference Include="OpenRigs.Devices" Version="0.1.1-coen-lab.8" />
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
