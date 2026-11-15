@@ -3,6 +3,7 @@
                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                  xmlns:rx="clr-namespace:Bonsai.Reactive;assembly=Bonsai.Core"
                  xmlns:io="clr-namespace:Bonsai.IO;assembly=Bonsai.System"
+                 xmlns:orl="clr-namespace:OpenRigs.Logging;assembly=OpenRigs.Logging"
                  xmlns:orc="clr-namespace:OpenRigs.Core;assembly=OpenRigs.Core"
                  xmlns:cal="clr-namespace:OpenRigs.Core.Calibration;assembly=OpenRigs.Core"
                  xmlns:orcl="clr-namespace:OpenRigs.Control;assembly=OpenRigs.Control"
@@ -15,7 +16,7 @@
                  xmlns:harp="clr-namespace:Bonsai.Harp;assembly=Bonsai.Harp"
                  xmlns:beh="clr-namespace:Harp.Behavior;assembly=Harp.Behavior"
                  xmlns="https://bonsai-rx.org/2018/workflow">
-  <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines (Channel or Channels) and FileName; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml (ReadValveRig), and every burst is fired on the board's Harp clock at the procedure's one pulseGapMs (OpenRigs.Core FirePulses). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its repeats. The procedure (pulse widths, repeats) is config\valve-calibration.yml, its widths scaled at Go so the smallest is the MinPulseMs parameter (ScaleWidths); before Go, Test commands fire a few pulses at a width so a valve's opening can be seen (TestTrain). On a rig whose rig.yml has a lick spout stage, OpenRigs.Devices HarpLickSpoutStage homes it and moves the spouts to rig.yml's lickSpoutDefaultPosition, then both in/out axes fully forward, before Ready, and back to the in position once the last burst is weighed (Extensions\Spouts.bonsai). Ready once the board answers and the spouts are in; Go runs the procedure; Finished once every burst is weighed.</Description>
+  <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines (Channel or Channels) and FileName; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml (ReadValveRig), and every burst is fired on the board's Harp clock at the procedure's one pulseGapMs (OpenRigs.Core FirePulses). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its repeats. The procedure (pulse widths, repeats) is config\valve-calibration.yml, its widths scaled at Go so the smallest is the MinPulseWidthMs parameter (ScaleWidths); before Go, Test commands fire a few pulses at a width so a valve's opening can be seen (TestTrain). On a rig whose rig.yml has a lick spout stage, OpenRigs.Devices HarpLickSpoutStage homes it and moves the spouts to rig.yml's lickSpoutDefaultPosition, then both in/out axes fully forward, before Ready, and back to the in position once the last burst is weighed (Extensions\Spouts.bonsai). Ready once the board answers and the spouts are in; Go runs the procedure; Finished once every burst is weighed.</Description>
   <Workflow>
     <Nodes>
       <Expression xsi:type="ExternalizedMapping">
@@ -119,7 +120,7 @@
                   <Maximum>1000000</Maximum>
                 </Parameter>
                 <Parameter>
-                  <Name>MinPulseMs</Name>
+                  <Name>MinPulseWidthMs</Name>
                   <Value>20</Value>
                   <Description>The shortest pulse width calibrated, in ms, set per rig on rig-control's Calibrations page: at Go every width of config\valve-calibration.yml is scaled so its smallest is this (the largest 5 times it), the pulses as written (ScaleWidths).</Description>
                   <Minimum>5</Minimum>
@@ -300,7 +301,7 @@
                   </Expression>
                   <Expression xsi:type="Combinator">
                     <Combinator xsi:type="orcl:ParameterValue">
-                      <orcl:Name>MinPulseMs</orcl:Name>
+                      <orcl:Name>MinPulseWidthMs</orcl:Name>
                     </Combinator>
                   </Expression>
                 </Nodes>
@@ -512,12 +513,14 @@
                   <Expression xsi:type="SubscribeSubject">
                     <Name>CalibrationWeights</Name>
                   </Expression>
-                  <Expression xsi:type="io:CsvWriter">
+                  <Expression xsi:type="orl:CsvWriter">
                     <io:FileName>valve-weights.csv</io:FileName>
                     <io:Append>false</io:Append>
                     <io:Overwrite>true</io:Overwrite>
                     <io:Suffix>None</io:Suffix>
                     <io:IncludeHeader>true</io:IncludeHeader>
+                    <orl:AutoFlush>false</orl:AutoFlush>
+                    <orl:PublishRows>false</orl:PublishRows>
                   </Expression>
                   <Expression xsi:type="WorkflowOutput" />
                 </Nodes>
@@ -908,7 +911,7 @@
             </Expression>
             <Expression xsi:type="rx:SelectMany">
               <Name>WritePulses</Name>
-              <Description>The board's own record of every pulse, beside the weights: each write the behavior board answers, stamped with its clock, to calibration\&lt;FileName&gt;-pulses.csv (columns harpTime, Register, Value; replaced every run). OutputSet is a line set (Value its lines as a number: DO1 = 2048, DO2 = 4096, DO3 = 8192), the start of a pulse as the board did it; PulseDO1 to PulseDO3 the width written just before, in ms. Bursts are timed on the board's Harp clock (FirePulses); these rows show what the board really fired. Opened once its path is known, as WriteWeights, and closed with the last weighing.</Description>
+              <Description>The board's own record of every pulse, beside the weights: each write the behavior board answers, stamped with its clock, to calibration\&lt;FileName&gt;-pulses.csv (OpenRigs.Logging CsvWriter, columns harpTime, register, value; replaced every run). OutputSet is a line set (Value its lines as a number: DO1 = 2048, DO2 = 4096, DO3 = 8192), the start of a pulse as the board did it; PulseDO1 to PulseDO3 the width written just before, in ms. Bursts are timed on the board's Harp clock (FirePulses); these rows show what the board really fired. Opened once its path is known, as WriteWeights, and closed with the last weighing.</Description>
               <Workflow>
                 <Nodes>
                   <Expression xsi:type="WorkflowInput">
@@ -932,25 +935,25 @@
                     <harp:Register xsi:type="beh:TimestampedOutputSet" />
                   </Expression>
                   <Expression xsi:type="scr:ExpressionTransform">
-                    <scr:Expression>new(Seconds as harpTime, "OutputSet" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
+                    <scr:Expression>new(Seconds as harpTime, "OutputSet" as register, Convert.ToInt32(Value) as value)</scr:Expression>
                   </Expression>
                   <Expression xsi:type="beh:Parse">
                     <harp:Register xsi:type="beh:TimestampedPulseDO1" />
                   </Expression>
                   <Expression xsi:type="scr:ExpressionTransform">
-                    <scr:Expression>new(Seconds as harpTime, "PulseDO1" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
+                    <scr:Expression>new(Seconds as harpTime, "PulseDO1" as register, Convert.ToInt32(Value) as value)</scr:Expression>
                   </Expression>
                   <Expression xsi:type="beh:Parse">
                     <harp:Register xsi:type="beh:TimestampedPulseDO2" />
                   </Expression>
                   <Expression xsi:type="scr:ExpressionTransform">
-                    <scr:Expression>new(Seconds as harpTime, "PulseDO2" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
+                    <scr:Expression>new(Seconds as harpTime, "PulseDO2" as register, Convert.ToInt32(Value) as value)</scr:Expression>
                   </Expression>
                   <Expression xsi:type="beh:Parse">
                     <harp:Register xsi:type="beh:TimestampedPulseDO3" />
                   </Expression>
                   <Expression xsi:type="scr:ExpressionTransform">
-                    <scr:Expression>new(Seconds as harpTime, "PulseDO3" as Register, Convert.ToInt32(Value) as Value)</scr:Expression>
+                    <scr:Expression>new(Seconds as harpTime, "PulseDO3" as register, Convert.ToInt32(Value) as value)</scr:Expression>
                   </Expression>
                   <Expression xsi:type="Combinator">
                     <Combinator xsi:type="rx:Merge" />
@@ -964,12 +967,14 @@
                   <Expression xsi:type="Combinator">
                     <Combinator xsi:type="rx:TakeUntil" />
                   </Expression>
-                  <Expression xsi:type="io:CsvWriter">
+                  <Expression xsi:type="orl:CsvWriter">
                     <io:FileName>valve-pulses.csv</io:FileName>
                     <io:Append>false</io:Append>
                     <io:Overwrite>true</io:Overwrite>
                     <io:Suffix>None</io:Suffix>
                     <io:IncludeHeader>true</io:IncludeHeader>
+                    <orl:AutoFlush>false</orl:AutoFlush>
+                    <orl:PublishRows>false</orl:PublishRows>
                   </Expression>
                   <Expression xsi:type="WorkflowOutput" />
                 </Nodes>
@@ -999,7 +1004,7 @@
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="orcl:ParameterValue">
-                <orcl:Name>MinPulseMs</orcl:Name>
+                <orcl:Name>MinPulseWidthMs</orcl:Name>
               </Combinator>
             </Expression>
           </Nodes>

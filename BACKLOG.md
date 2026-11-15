@@ -2,7 +2,8 @@
 
 ## 2026-11-14 Dome-task alignment audit
 
-- **Log through the lab's loggers** (dome-task alignment audit, 14 Nov 2026, backlogged): `valve-weights.csv` and `valve-pulses.csv` are written by Bonsai's own `CsvWriter`, not by the lab's loggers (lib-open-rigs OpenRigs.Logging) that the dome tasks use. Move them onto the lab's loggers when the coen- workflows' loggers are next aligned (the FFmpeg camera logger comes first).
+- **Done 15 Nov 2026: log through the lab's loggers.** `valve-weights.csv` (`pulseWidthMs`, `repeats`, `beforeG`, `afterG`, `channel`, `pulseGapMs`) and `valve-pulses.csv` (`harpTime`, `register`, `value`) are written by OpenRigs.Logging's `CsvWriter`. Was: written by Bonsai's own `CsvWriter` (dome-task alignment audit, 14 Nov 2026).
+- **The procedure's `size` is lib-open-rigs' `DispenseSample.size`.** A valve pulse width is `pulseWidthMs` in the weights file and `PulseWidthMs` / `MinPulseWidthMs` in the workflows (15 Nov 2026); `config\valve-calibration.yml`'s `size` follows when lib renames `DispenseSample.size`.
 
 ## Measure the in/out (Radial) motors' forward travel
 

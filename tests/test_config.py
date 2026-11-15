@@ -38,7 +38,7 @@ def test_one_gap_for_every_sample(settings):
 
 
 def test_widths_from_20_ms_to_5_times_that(settings):
-    # Written for a 20 ms minimum; at Go they are scaled so the smallest is the rig's MinPulseMs.
+    # Written for a 20 ms minimum; at Go they are scaled so the smallest is the rig's MinPulseWidthMs.
     sizes = [sample.size for sample in settings.procedure.samples]
     assert min(sizes) == 20
     assert max(sizes) == 5 * min(sizes)

@@ -283,9 +283,9 @@ namespace CoenQcCalibrateValve
 
     // A minimum width per rig (Pip, 12 Nov 2026: "set different min/max of calibration on different
     // rigs"; "Max opening should be 5 x min, so all just scale"): the procedure's widths are written
-    // for a 20 ms minimum and scaled at Go to rig-control's MinPulseMs; the pulses stay as written.
+    // for a 20 ms minimum and scaled at Go to rig-control's MinPulseWidthMs; the pulses stay as written.
     [Combinator]
-    [Description("The procedure's widths scaled at Go so the smallest is MinPulseMs, each times MinPulseMs over the smallest written, rounded half away from zero; pulses, gaps and priming as written. Input: (MinPulseMs as text, the settings). In place, and idempotent, so every subscriber of the settings scales them alike.")]
+    [Description("The procedure's widths scaled at Go so the smallest is MinPulseWidthMs, each times MinPulseWidthMs over the smallest written, rounded half away from zero; pulses, gaps and priming as written. Input: (MinPulseWidthMs as text, the settings). In place, and idempotent, so every subscriber of the settings scales them alike.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
     public class ScaleWidths
     {
@@ -302,7 +302,7 @@ namespace CoenQcCalibrateValve
             if (!int.TryParse((text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out min) || min < Lowest || min > Highest)
             {
                 throw new InvalidOperationException(string.Format(
-                    "MinPulseMs '{0}' is not a minimum width: give whole ms, {1} to {2}.", text, Lowest, Highest));
+                    "MinPulseWidthMs '{0}' is not a minimum width: give whole ms, {1} to {2}.", text, Lowest, Highest));
             }
             return min;
         }
@@ -363,13 +363,13 @@ namespace CoenQcCalibrateValve
         }
     }
 
-    /// <summary>One row of the weights file.</summary>
+    /// <summary>One row of the weights file, its columns camelCase with their units (lib-open-rigs specs\logging.md).</summary>
     public class ValveWeighing
     {
-        public double size { get; set; }
+        public double pulseWidthMs { get; set; }
         public int repeats { get; set; }
-        public double before { get; set; }
-        public double after { get; set; }
+        public double beforeG { get; set; }
+        public double afterG { get; set; }
         public int channel { get; set; }
         public int pulseGapMs { get; set; }
     }
@@ -396,10 +396,10 @@ namespace CoenQcCalibrateValve
                 var valve = weighed.Item2 as ValveSample;
                 return new ValveWeighing
                 {
-                    size = weighed.Item2.Size,
+                    pulseWidthMs = weighed.Item2.Size,
                     repeats = weighed.Item2.Repeats + input.Item2,
-                    before = weighed.Item1.Item2,
-                    after = weighed.Item1.Item1,
+                    beforeG = weighed.Item1.Item2,
+                    afterG = weighed.Item1.Item1,
                     channel = valve != null ? valve.Channel : Channel,
                     pulseGapMs = weighed.Item2.PulseGapMs
                 };

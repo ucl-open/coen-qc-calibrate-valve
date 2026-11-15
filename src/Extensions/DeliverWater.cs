@@ -11,7 +11,7 @@ using System.Reactive.Linq;
 namespace CoenQcCalibrateValve
 {
     [Combinator]
-    [Description("At each input, one burst for FirePulses: Pulses pulses of SizeMs on Channel at PulseGapMs. Input: (anything, rig.yml's valves); stops the workflow if Channel is not a RewardValve in rig.yml's wiring or a setting is out of range.")]
+    [Description("At each input, one burst for FirePulses: Pulses pulses of PulseWidthMs on Channel at PulseGapMs. Input: (anything, rig.yml's valves); stops the workflow if Channel is not a RewardValve in rig.yml's wiring or a setting is out of range.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
     public class DeliverTrain
     {
@@ -28,7 +28,7 @@ namespace CoenQcCalibrateValve
         }
 
         [Description("Each pulse's width in ms: the reward's, read off the valve's curve.")]
-        public int SizeMs
+        public int PulseWidthMs
         {
             get { return sizeMs; }
             set { sizeMs = value; }
@@ -56,16 +56,16 @@ namespace CoenQcCalibrateValve
                 {
                     throw new InvalidOperationException(string.Format("Pulses {0} is not a delivery: give 1 to 5000.", Pulses));
                 }
-                if (SizeMs < 1 || SizeMs > 1000)
+                if (PulseWidthMs < 1 || PulseWidthMs > 1000)
                 {
-                    throw new InvalidOperationException(string.Format("SizeMs {0} is not a pulse width: give 1 to 1000 ms.", SizeMs));
+                    throw new InvalidOperationException(string.Format("PulseWidthMs {0} is not a pulse width: give 1 to 1000 ms.", PulseWidthMs));
                 }
                 if (PulseGapMs < 1 || PulseGapMs > 10000)
                 {
                     throw new InvalidOperationException(string.Format("PulseGapMs {0} is not a gap: give the valve calibration file's pulseGapMs, 1 to 10000 ms.", PulseGapMs));
                 }
                 input.Item2.Check(new[] { Channel });
-                return new PulseTrain { Line = Channel, WidthMs = SizeMs, Count = Pulses, PulseGapMs = PulseGapMs };
+                return new PulseTrain { Line = Channel, WidthMs = PulseWidthMs, Count = Pulses, PulseGapMs = PulseGapMs };
             });
         }
     }

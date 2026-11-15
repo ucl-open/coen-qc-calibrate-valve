@@ -129,7 +129,7 @@ Check "a sample's drip: its width on its valve ($(Train $trains[0]))" ((Train $t
 $trains = Items $train ((New-Object CoenQcCalibrateValve.DripTrains).Process((Obs ([string]) '1 DO2'), (Obs ([OpenRigs.Core.Calibration.DispenseProcedure]) $all)))
 Check "the baseline's drip: the largest width on the line named ($(Train $trains[0]))" ((Train $trains[0]) -eq '1x40@DO2/80')
 
-# A minimum per rig (Pip, 12 Nov 2026): the widths scaled so the smallest is MinPulseMs, pulses as written.
+# A minimum per rig (Pip, 12 Nov 2026): the widths scaled so the smallest is MinPulseWidthMs, pulses as written.
 $ladder = { New-Settings @(@(40, 300), @(20, 600), @(25, 480), @(100, 120), @(30, 400), @(70, 171), @(50, 240)) }
 $scale = [CoenQcCalibrateValve.ScaleWidths]
 $scaled = $scale::Scale((& $ladder), 30).Procedure.Samples
@@ -138,7 +138,7 @@ Check 'min 30: pulses as written' ((@($scaled | ForEach-Object { $_.Repeats }) -
 $twice = $scale::Scale($scale::Scale((& $ladder), 15), 15).Procedure.Samples
 Check "min 15: scaling twice is scaling once ($(@($twice | ForEach-Object { $_.Size }) -join ','))" ((@($twice | ForEach-Object { $_.Size }) -join ',') -eq '30,15,19,75,23,53,38')
 Check 'min 20: the procedure as written' ((@($scale::Scale((& $ladder), 20).Procedure.Samples | ForEach-Object { $_.Size }) -join ',') -eq '40,20,25,100,30,70,50')
-foreach ($bad in '', '4', '101', '12.5', 'twenty') { Check "MinPulseMs '$bad' refused" (Refused { $scale::ParseMin($bad) }) }
+foreach ($bad in '', '4', '101', '12.5', 'twenty') { Check "MinPulseWidthMs '$bad' refused" (Refused { $scale::ParseMin($bad) }) }
 
 # Test (Pip, 12 Nov 2026): a width tested before Start, on the line named, at the procedure's gap.
 $test = [CoenQcCalibrateValve.TestTrain]::Parse('25 10 DO2')
@@ -152,12 +152,12 @@ Check "a test: its width on its line at the procedure's gap ($(Train $trains[0])
 $inner = New-Object 'Tuple[Tuple[double,double],OpenRigs.Core.Calibration.DispenseSample]' ([Tuple]::Create([double]20.5, [double]20.1)), $all.Samples[1]
 $weighed = [Tuple]::Create($inner, [int]2)
 $row = (Items ([CoenQcCalibrateValve.ValveWeighing]) ((New-Object CoenQcCalibrateValve.ValveWeighingRow).Process((Obs $weighed.GetType() $weighed))))[0]
-Check 'a weights row: its drips in its repeats, its valve and its gap' (($row.repeats -eq 252) -and ($row.channel -eq 2) -and ($row.pulseGapMs -eq 80) -and ($row.before -eq 20.1))
+Check 'a weights row: its drips in its repeats, its valve and its gap' (($row.repeats -eq 252) -and ($row.channel -eq 2) -and ($row.pulseGapMs -eq 80) -and ($row.beforeG -eq 20.1))
 
 # Delivering water (deliver.bonsai) at the calibration file's gap, on a wired valve only.
 function Deliver($channel, $gap) {
     $d = New-Object CoenQcCalibrateValve.DeliverTrain
-    $d.Channel = $channel; $d.SizeMs = 30; $d.Pulses = 10; $d.PulseGapMs = $gap
+    $d.Channel = $channel; $d.PulseWidthMs = 30; $d.Pulses = 10; $d.PulseGapMs = $gap
     $go = [Tuple]::Create([int]0, $arena)
     (Items $train ($d.Process((Obs $go.GetType() $go))))[0]
 }
