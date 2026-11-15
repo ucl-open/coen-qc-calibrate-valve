@@ -58,4 +58,4 @@ DO1: { discriminatorType: CalibratedPulse, artefact: calibration/valve-DO1.json 
 
 ## Setup
 
-`scripts\deploy.ps1` (or `.bonsai\Setup.ps1`) installs Bonsai and the packages. The lab's packages come from lib-open-rigs (`workflows.txt` there); never bump them here by hand.
+`scripts\deploy.ps1` (or `.bonsai\Setup.ps1`) installs Bonsai and the packages. The lab's packages come from lib-open-rigs through app-rig-setup's `workflows\update-workflows.ps1`, which reads `profile-repos.json` and the rules file's `extraWorkflows`; never bump them here by hand.
