@@ -7,7 +7,7 @@
 # The balance is read by rig-control (OpenRigs.Devices ManualBalance): after each burst the run asks for
 # the weight and waits up to weighTimeoutS for rig-control to send it, read off the camera or typed,
 # taking that one reading (settleWindow 1).
-# Each sample fires `repeats` pulses at `size` ms, then weighs the gain. Seven widths, closer
+# Each sample fires `repeats` pulses of `pulseWidthMs`, then weighs the gain. Seven widths, closer
 # together at the short end: 20, 25, 30, 40, 50, 70 and 100 ms, each measured twice (three times until 9 Nov 2026, Pip: "just do 2 repeats, not 3, for now"), in rounds of
 # all seven, each round shuffled anew every run (Pip, 11 Nov 2026: "Shuffle every round"; the order
 # below is ignored, round k being each width's k-th sample), so drift over the run falls on
@@ -27,24 +27,24 @@
 # written (Pip, 12 Nov 2026: "Max opening should be 5 x min, so all just scale").
 procedure:
   samples:
-    - { size: 40, repeats: 300, pulseGapMs: 80 } # round 1
-    - { size: 30, repeats: 400, pulseGapMs: 80 }
-    - { size: 50, repeats: 240, pulseGapMs: 80 }
-    - { size: 25, repeats: 480, pulseGapMs: 80 }
-    - { size: 100, repeats: 120, pulseGapMs: 80 }
-    - { size: 20, repeats: 600, pulseGapMs: 80 }
-    - { size: 70, repeats: 171, pulseGapMs: 80 }
-    - { size: 25, repeats: 480, pulseGapMs: 80 } # round 2
-    - { size: 20, repeats: 600, pulseGapMs: 80 }
-    - { size: 100, repeats: 120, pulseGapMs: 80 }
-    - { size: 70, repeats: 171, pulseGapMs: 80 }
-    - { size: 40, repeats: 300, pulseGapMs: 80 }
-    - { size: 30, repeats: 400, pulseGapMs: 80 }
-    - { size: 50, repeats: 240, pulseGapMs: 80 }
+    - { pulseWidthMs: 40, repeats: 300, pulseGapMs: 80 } # round 1
+    - { pulseWidthMs: 30, repeats: 400, pulseGapMs: 80 }
+    - { pulseWidthMs: 50, repeats: 240, pulseGapMs: 80 }
+    - { pulseWidthMs: 25, repeats: 480, pulseGapMs: 80 }
+    - { pulseWidthMs: 100, repeats: 120, pulseGapMs: 80 }
+    - { pulseWidthMs: 20, repeats: 600, pulseGapMs: 80 }
+    - { pulseWidthMs: 70, repeats: 171, pulseGapMs: 80 }
+    - { pulseWidthMs: 25, repeats: 480, pulseGapMs: 80 } # round 2
+    - { pulseWidthMs: 20, repeats: 600, pulseGapMs: 80 }
+    - { pulseWidthMs: 100, repeats: 120, pulseGapMs: 80 }
+    - { pulseWidthMs: 70, repeats: 171, pulseGapMs: 80 }
+    - { pulseWidthMs: 40, repeats: 300, pulseGapMs: 80 }
+    - { pulseWidthMs: 30, repeats: 400, pulseGapMs: 80 }
+    - { pulseWidthMs: 50, repeats: 240, pulseGapMs: 80 }
   xName: pulse_width
   xUnit: ms
   primingPulses: 5
-  primingSize: 500        # ms each, so the line is full before the baseline (Pip); unset is the largest sample's
+  primingPulseWidthMs: 500 # ms each, so the line is full before the baseline (Pip); unset is the largest sample's
   densityGPerMl: 1.0
   settleWindow: 1
   weighTimeoutS: 3600

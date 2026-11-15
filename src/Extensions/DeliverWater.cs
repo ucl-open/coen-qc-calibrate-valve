@@ -1,4 +1,5 @@
 using Bonsai;
+using Harp.Behavior;
 using System;
 using System.ComponentModel;
 using System.Reactive.Linq;
@@ -11,12 +12,12 @@ using System.Reactive.Linq;
 namespace CoenQcCalibrateValve
 {
     [Combinator]
-    [Description("At each input, one burst for FirePulses: Pulses pulses of PulseWidthMs on Channel at PulseGapMs. Input: (anything, rig.yml's valves); stops the workflow if Channel is not a RewardValve in rig.yml's wiring or a setting is out of range.")]
+    [Description("At each input, one burst for FirePulses: Pulses pulses of PulseWidthMs on Channel at PulseGapMs. Input: (anything, rig.yml's RewardValve lines); stops the workflow if Channel is not a RewardValve in rig.yml's wiring or a setting is out of range.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
     public class DeliverTrain
     {
         int channel = 1;
-        int sizeMs = 1;
+        int pulseWidthMs = 1;
         int pulses;
         int pulseGapMs;
 
@@ -30,8 +31,8 @@ namespace CoenQcCalibrateValve
         [Description("Each pulse's width in ms: the reward's, read off the valve's curve.")]
         public int PulseWidthMs
         {
-            get { return sizeMs; }
-            set { sizeMs = value; }
+            get { return pulseWidthMs; }
+            set { pulseWidthMs = value; }
         }
 
         [Description("How many pulses to fire.")]
@@ -48,7 +49,7 @@ namespace CoenQcCalibrateValve
             set { pulseGapMs = value; }
         }
 
-        public IObservable<PulseTrain> Process<TSource>(IObservable<Tuple<TSource, ValveRig>> source)
+        public IObservable<PulseTrain> Process<TSource>(IObservable<Tuple<TSource, DigitalOutputs>> source)
         {
             return source.Select(input =>
             {
@@ -64,7 +65,7 @@ namespace CoenQcCalibrateValve
                 {
                     throw new InvalidOperationException(string.Format("PulseGapMs {0} is not a gap: give the valve calibration file's pulseGapMs, 1 to 10000 ms.", PulseGapMs));
                 }
-                input.Item2.Check(new[] { Channel });
+                Valves.Check(input.Item2, new[] { Channel });
                 return new PulseTrain { Line = Channel, WidthMs = PulseWidthMs, Count = Pulses, PulseGapMs = PulseGapMs };
             });
         }

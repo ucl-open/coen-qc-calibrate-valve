@@ -1,5 +1,5 @@
-# Checks src\Extensions without the rig: the rig model (tests\rigs: a box, an arena and a dome
-# rig.yml, and the refusals), the valves parsed from Channels, the procedure expanded over them
+# Checks src\Extensions without the rig: the lab rig model's valves (tests\rigs: a box, an arena and a
+# dome rig.yml, and the refusals), the valves parsed from Channels, the procedure expanded over them
 # (each sample once per valve, in turn; priming once per valve; one pulseGapMs), each burst's
 # PulseTrain for FirePulses, and the spouts' targets.
 # Run after lib-open-rigs' check-workflow-builds.ps1 has compiled the extension, which leaves
@@ -7,7 +7,7 @@
 # Exit 0 when every check passes.
 param([string]$Bin = (Join-Path ([IO.Path]::GetTempPath()) ('check-workflow-builds-' + (Split-Path (Split-Path $PSScriptRoot) -Leaf))))
 $ErrorActionPreference = 'Stop'
-foreach ($dll in 'System.Reactive.Interfaces', 'System.Reactive.Core', 'System.Reactive.Linq', 'Bonsai.Core', 'YamlDotNet', 'Harp.Behavior', 'OpenRigs.Core', 'OpenRigs.Devices', 'Extensions') {
+foreach ($dll in 'System.Reactive.Interfaces', 'System.Reactive.Core', 'System.Reactive.Linq', 'Bonsai.Core', 'YamlDotNet', 'Harp.Behavior', 'Harp.TimestampGeneratorGen3', 'Newtonsoft.Json', 'OpenRigs.Core', 'OpenRigs.Devices', 'Extensions') {
     $null = [Reflection.Assembly]::LoadFrom((Join-Path $Bin "$dll.dll"))
 }
 $rigs = Join-Path (Split-Path $PSScriptRoot) 'tests\rigs'
@@ -18,48 +18,43 @@ function Check($name, $ok) {
 function Refused($block) { try { $null = & $block; $false } catch { $true } }
 function Train($t) { "$($t.Count)x$($t.WidthMs)@DO$($t.Line)/$($t.PulseGapMs)" }
 
-# The rig model: a box, an arena and a dome all read; only the valve lines and the stage are taken.
-$box = [CoenQcCalibrateValve.ValveRig]::Read((Join-Path $rigs 'box.yml'))
-Check 'box: port, one valve, no stage' (($box.PortName -eq 'COM3') -and ((@($box.Valves) -join ',') -eq '1') -and -not $box.HasStage)
-Check 'box: only the valve line pulsed' ("$($box.OutputPulseEnable)" -eq 'DO1')
-$arena = [CoenQcCalibrateValve.ValveRig]::Read((Join-Path $rigs 'arena.yml'))
-Check 'arena: two valves, no stage' (((@($arena.Valves) -join ',') -eq '1,2') -and -not $arena.HasStage -and ("$($arena.OutputPulseEnable)" -eq 'DO1, DO2'))
-$dome = [CoenQcCalibrateValve.ValveRig]::Read((Join-Path $rigs 'dome.yml'))
-Check 'dome: two valves, not the Zapit line' (((@($dome.Valves) -join ',') -eq '1,2') -and ("$($dome.OutputPulseEnable)" -eq 'DO1, DO2'))
-Check 'dome: the stage on StepperDriver-A and -B' ($dome.HasStage -and $dome.StepperDriverA.Name -eq 'StepperDriver-A' -and $dome.StepperDriverA.Settings.PortName -eq 'COM5' -and $dome.StepperDriverB.Settings.PortName -eq 'COM6')
-Check 'dome: the stage takes rig.yml''s default position (no positions file)' (-not (Test-Path $dome.PositionsFile) -and $dome.PositionsFile.StartsWith($rigs))
-Check 'a valve wiring does not give is refused' (Refused { $arena.Check([int[]]@(3)) })
-Check 'a wired valve passes' (-not (Refused { $dome.Check([int[]]@(2, 1)) }))
-
-$tmp = Join-Path ([IO.Path]::GetTempPath()) "test-interleave-$PID"
-New-Item -ItemType Directory -Force $tmp | Out-Null
+# The rig model: lib-open-rigs' LabRig (OpenRigs.Devices ReadLabRig) reads a box, an arena and a dome
+# rig.yml; the valves are the lines its wiring gives a RewardValve (OpenRigs.Devices WiredOutputs).
+$rx = [System.Reactive.Linq.Observable]
+function Obs($type, $value) { ($rx.GetMethods() | Where-Object { $_.Name -eq 'Return' -and $_.GetParameters().Count -eq 1 })[0].MakeGenericMethod($type).Invoke($null, @($value)) }
+function Items($type, $source) { @(($rx.GetMethods() | Where-Object { $_.Name -eq 'ToEnumerable' })[0].MakeGenericMethod($type).Invoke($null, @($source))) }
+$deserialize = [OpenRigs.Devices.Rigs.DeserializeFromYaml].GetMethod('Process', [Reflection.BindingFlags]'NonPublic, Static').MakeGenericMethod([OpenRigs.Devices.Rigs.LabRig])
+function Rig($text) { (Items ([OpenRigs.Devices.Rigs.LabRig]) ($deserialize.Invoke($null, @((Obs ([string]) $text)))))[0] }
+function RigFile($name) { Rig ([IO.File]::ReadAllText((Join-Path $rigs $name))) }
+function Lines($rig) { [OpenRigs.Devices.WiredOutputs]::Find($rig, 'BehaviorBoard-Main', 'RewardValve') }
+$box = RigFile 'box.yml'
+Check 'box: one valve, no stage' (("$(Lines $box)" -eq 'DO1') -and $null -eq $box.StepperDriver)
+$arena = Lines (RigFile 'arena.yml')
+Check 'arena: two valves' ("$arena" -eq 'DO1, DO2')
+$dome = RigFile 'dome.yml'
+Check 'dome: two valves, not the Zapit line' ("$(Lines $dome)" -eq 'DO1, DO2')
+Check 'dome: the stage on stepperDriver a and b' ($dome.StepperDriver.Count -eq 2 -and $dome.StepperDriver['a'].PortName -eq 'COM5' -and $dome.StepperDriver['b'].PortName -eq 'COM6')
+Check 'dome: its timestamp generator read (Harp.TimestampGeneratorGen3 0.1.1)' ("$($dome.TimestampGeneratorGen3['main'].TimerFrequency)" -eq 'Timer1000Hz')
+Check 'a valve wiring does not give is refused' (Refused { [CoenQcCalibrateValve.Valves]::Check($arena, [int[]]@(3)) })
+Check 'a wired valve passes' (-not (Refused { [CoenQcCalibrateValve.Valves]::Check((Lines $dome), [int[]]@(2, 1)) }))
 $refusals = [ordered]@{
     'no RewardValve (a box today)' = "behaviorBoard:`n  main:`n    portName: COM3`n    pulseController: null`n"
     'a RewardValve off DO1 to DO3' = "behaviorBoard:`n  main:`n    portName: COM3`n    wiring:`n      DOPort0: { device: RewardValve }`n"
-    'no port' = "behaviorBoard:`n  main:`n    portName: null`n    wiring:`n      DO1: { device: RewardValve }`n"
     'no board main' = "behaviorBoard:`n  left:`n    portName: COM3`n"
-    'a stage with one driver' = "behaviorBoard:`n  main:`n    portName: COM3`n    wiring:`n      DO1: { device: RewardValve }`nstepperDriver:`n  a: { portName: COM5 }`n"
+    'a key the lab rig model lacks' = "behaviorBoard:`n  main:`n    portName: COM3`nrewardValves: { left: DO1 }`n"
 }
-foreach ($case in $refusals.Keys) {
-    $file = Join-Path $tmp 'rig.yml'
-    [IO.File]::WriteAllText($file, $refusals[$case])
-    $message = ''
-    try { $null = [CoenQcCalibrateValve.ValveRig]::Read($file) } catch { $message = $_.Exception.InnerException.Message; if (-not $message) { $message = $_.Exception.Message } }
-    Check "refused, naming the rule's home: $case" ($message -like '*valve calibration rig model*')
-}
-Check 'no rig.yml refused' (Refused { [CoenQcCalibrateValve.ValveRig]::Read((Join-Path $tmp 'none.yml')) })
-Remove-Item $tmp -Recurse -Force
+foreach ($case in $refusals.Keys) { Check "refused: $case" (Refused { Lines (Rig $refusals[$case]) }) }
 
-function New-Sample($size, $repeats, $gap) {
+function New-Sample($width, $repeats, $gap) {
     $sample = New-Object OpenRigs.Core.Calibration.DispenseSample
-    $sample.Size = $size; $sample.Repeats = $repeats; $sample.PulseGapMs = $gap
+    $sample.PulseWidthMs = $width; $sample.Repeats = $repeats; $sample.PulseGapMs = $gap
     $sample
 }
-function New-Settings($sizes = @(@(40, 250), @(20, 500)), $gap = 80) {
+function New-Settings($widths = @(@(40, 250), @(20, 500)), $gap = 80) {
     $settings = New-Object OpenRigs.Core.Calibration.DispenseCalibration
     $procedure = New-Object OpenRigs.Core.Calibration.DispenseProcedure
     $samples = New-Object 'System.Collections.Generic.List[OpenRigs.Core.Calibration.DispenseSample]'
-    foreach ($s in $sizes) { $samples.Add((New-Sample $s[0] $s[1] $gap)) }
+    foreach ($s in $widths) { $samples.Add((New-Sample $s[0] $s[1] $gap)) }
     $procedure.Samples = $samples
     $procedure.PrimingPulses = 5
     $settings.Procedure = $procedure
@@ -80,14 +75,14 @@ Check 'samples at different gaps refused' (Refused { $parse::Gap($mixed.Procedur
 Check 'expanding samples at different gaps refused' (Refused { [CoenQcCalibrateValve.InterleaveValves]::Expand($mixed, [int[]]@(1), $null) })
 
 $all = [CoenQcCalibrateValve.InterleaveValves]::Expand((New-Settings), [int[]]@(1, 2), $null).Procedure
-$order = @($all.Samples | ForEach-Object { "$($_.Size)@$($_.Channel)" }) -join ' '
+$order = @($all.Samples | ForEach-Object { "$($_.PulseWidthMs)@$($_.Channel)" }) -join ' '
 Check "two valves: each burst on each in turn ($order)" ($order -eq '40@1 40@2 20@1 20@2')
 Check 'two valves: repeats and gap kept' ((@($all.Samples | ForEach-Object { "$($_.Repeats)/$($_.PulseGapMs)" }) -join ',') -eq '250/80,250/80,500/80,500/80')
 Check 'two valves: priming once per valve, counted together' ($all.PrimingPulses -eq 10)
 Check 'two valves: the valves read back in firing order' ((@([CoenQcCalibrateValve.Valves]::Of($all)) -join ',') -eq '1,2')
 
 $one = [CoenQcCalibrateValve.InterleaveValves]::Expand((New-Settings), [int[]]@(2), $null).Procedure
-$order = @($one.Samples | ForEach-Object { "$($_.Size)@$($_.Channel)" }) -join ' '
+$order = @($one.Samples | ForEach-Object { "$($_.PulseWidthMs)@$($_.Channel)" }) -join ' '
 Check "one valve: the procedure as written ($order)" ($order -eq '40@2 20@2')
 Check 'one valve: priming as written' ($one.PrimingPulses -eq 5)
 
@@ -96,25 +91,22 @@ $orders = @{}
 foreach ($seed in 1..40) {
     $settings = New-Settings @(@(40, 250), @(20, 500), @(20, 500), @(70, 100), @(40, 250), @(70, 100), @(20, 500))
     $s = [CoenQcCalibrateValve.InterleaveValves]::Expand($settings, [int[]]@(1, 2), (New-Object Random $seed)).Procedure.Samples
-    $sizes = @($s | ForEach-Object { $_.Size })
-    $ok = ((@($sizes[0..5] | Sort-Object) -join ',') -eq '20,20,40,40,70,70') -and ((@($sizes[6..11] | Sort-Object) -join ',') -eq '20,20,40,40,70,70') -and ((@($sizes[12..13]) -join ',') -eq '20,20')
+    $widths = @($s | ForEach-Object { $_.PulseWidthMs })
+    $ok = ((@($widths[0..5] | Sort-Object) -join ',') -eq '20,20,40,40,70,70') -and ((@($widths[6..11] | Sort-Object) -join ',') -eq '20,20,40,40,70,70') -and ((@($widths[12..13]) -join ',') -eq '20,20')
     $ok = $ok -and ((@($s | ForEach-Object { $_.Channel }) -join '') -eq '12121212121212')
-    $ok = $ok -and (@(0..6 | Where-Object { $sizes[2 * $_] -ne $sizes[2 * $_ + 1] }).Count -eq 0)
-    $ok = $ok -and (@($s | Where-Object { $_.Repeats -ne @{20 = 500; 40 = 250; 70 = 100}[$_.Size] }).Count -eq 0)
+    $ok = $ok -and (@(0..6 | Where-Object { $widths[2 * $_] -ne $widths[2 * $_ + 1] }).Count -eq 0)
+    $ok = $ok -and (@($s | Where-Object { $_.Repeats -ne @{20 = 500; 40 = 250; 70 = 100}[$_.PulseWidthMs] }).Count -eq 0)
     if (-not $ok) { break }
-    $orders[($sizes -join ' ')] = 1
+    $orders[($widths -join ' ')] = 1
 }
 Check 'shuffled: every round has its widths, both valves in turn, repeats kept' $ok
 Check "shuffled: the order changes from run to run ($($orders.Count) orders in 40)" ($orders.Count -gt 4)
 
 # The bursts as FirePulses trains.
-$rx = [System.Reactive.Linq.Observable]
-function Obs($type, $value) { ($rx.GetMethods() | Where-Object { $_.Name -eq 'Return' -and $_.GetParameters().Count -eq 1 })[0].MakeGenericMethod($type).Invoke($null, @($value)) }
-function Items($type, $source) { @(($rx.GetMethods() | Where-Object { $_.Name -eq 'ToEnumerable' })[0].MakeGenericMethod($type).Invoke($null, @($source))) }
 $train = [CoenQcCalibrateValve.PulseTrain]
 $trains = Items $train ((New-Object CoenQcCalibrateValve.ValveTrains).Process((Obs ([OpenRigs.Core.Calibration.DispenseSample]) $all.Samples[3])))
 Check "a sample's burst: its pulses at its width on its valve at its gap ($(Train $trains[0]))" ((Train $trains[0]) -eq '500x20@DO2/80')
-$all.PrimingSize = 500
+$all.PrimingPulseWidthMs = 500
 $trains = @([CoenQcCalibrateValve.ValveTrains]::Priming($all, 1) | ForEach-Object { Train $_ })
 Check "priming: an equal share on each valve in turn ($($trains -join ' '))" (($trains -join ' ') -eq '5x500@DO1/80 5x500@DO2/80')
 
@@ -133,11 +125,11 @@ Check "the baseline's drip: the largest width on the line named ($(Train $trains
 $ladder = { New-Settings @(@(40, 300), @(20, 600), @(25, 480), @(100, 120), @(30, 400), @(70, 171), @(50, 240)) }
 $scale = [CoenQcCalibrateValve.ScaleWidths]
 $scaled = $scale::Scale((& $ladder), 30).Procedure.Samples
-Check "min 30: widths 30 to 150 ($(@($scaled | ForEach-Object { $_.Size }) -join ','))" ((@($scaled | ForEach-Object { $_.Size }) -join ',') -eq '60,30,38,150,45,105,75')
+Check "min 30: widths 30 to 150 ($(@($scaled | ForEach-Object { $_.PulseWidthMs }) -join ','))" ((@($scaled | ForEach-Object { $_.PulseWidthMs }) -join ',') -eq '60,30,38,150,45,105,75')
 Check 'min 30: pulses as written' ((@($scaled | ForEach-Object { $_.Repeats }) -join ',') -eq '300,600,480,120,400,171,240')
 $twice = $scale::Scale($scale::Scale((& $ladder), 15), 15).Procedure.Samples
-Check "min 15: scaling twice is scaling once ($(@($twice | ForEach-Object { $_.Size }) -join ','))" ((@($twice | ForEach-Object { $_.Size }) -join ',') -eq '30,15,19,75,23,53,38')
-Check 'min 20: the procedure as written' ((@($scale::Scale((& $ladder), 20).Procedure.Samples | ForEach-Object { $_.Size }) -join ',') -eq '40,20,25,100,30,70,50')
+Check "min 15: scaling twice is scaling once ($(@($twice | ForEach-Object { $_.PulseWidthMs }) -join ','))" ((@($twice | ForEach-Object { $_.PulseWidthMs }) -join ',') -eq '30,15,19,75,23,53,38')
+Check 'min 20: the procedure as written' ((@($scale::Scale((& $ladder), 20).Procedure.Samples | ForEach-Object { $_.PulseWidthMs }) -join ',') -eq '40,20,25,100,30,70,50')
 foreach ($bad in '', '4', '101', '12.5', 'twenty') { Check "MinPulseWidthMs '$bad' refused" (Refused { $scale::ParseMin($bad) }) }
 
 # Test (Pip, 12 Nov 2026): a width tested before Start, on the line named, at the procedure's gap.

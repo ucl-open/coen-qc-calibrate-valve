@@ -1,11 +1,12 @@
-# A dome's rig.yml, the parts the valve calibration reads (lib-open-rigs' Dome Building Blocks
-# example): two reward valves, the Zapit trigger on DO3, and the lick spout stage's two drivers.
+# A dome's rig.yml, the parts the valve calibration reads (lib-open-rigs' building-blocks example):
+# two reward valves, the Zapit trigger on DO3, the timestamp generator and the lick spout stage's
+# two drivers.
 behaviorBoard:
   main:
     portName: COM3
     usbSerial: AB0M7PLB
     pulseController:
-      outputPulseEnable: "DO1, DO2, DO3"
+      outputPulseEnable: "DO1, DO2"
       outputs:
         DO1: { discriminatorType: CalibratedPulse, artefact: calibration/valve-DO1.json }
         DO2: { discriminatorType: CalibratedPulse, artefact: calibration/valve-DO2.json }
@@ -15,6 +16,8 @@ behaviorBoard:
       DO1: { device: RewardValve, side: left }
       DO2: { device: RewardValve, side: right }
       DO3: { device: ZapitTrigger, note: also the masking light }
+timestampGeneratorGen3:
+  main: { portName: COM4, timerFrequency: Timer1000Hz }
 stepperDriver:
   a: { portName: COM5, usbSerial: AB0AAAAA }
   b: { portName: COM6, usbSerial: AB0BBBBB }

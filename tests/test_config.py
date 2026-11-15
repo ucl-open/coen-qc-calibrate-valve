@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 import yaml
 from open_rigs.core.dispense import DispenseCalibration
+from open_rigs.rigs.lab_rig import LabRig
 
 ROOT = Path(__file__).parents[1]
 RIGS = sorted((ROOT / "tests" / "rigs").glob("*.yml"))
@@ -39,25 +40,28 @@ def test_one_gap_for_every_sample(settings):
 
 def test_widths_from_20_ms_to_5_times_that(settings):
     # Written for a 20 ms minimum; at Go they are scaled so the smallest is the rig's MinPulseWidthMs.
-    sizes = [sample.size for sample in settings.procedure.samples]
-    assert min(sizes) == 20
-    assert max(sizes) == 5 * min(sizes)
+    widths = [sample.pulse_width_ms for sample in settings.procedure.samples]
+    assert min(widths) == 20
+    assert max(widths) == 5 * min(widths)
 
 
 def test_rounds_measure_every_width_alike(settings):
-    counts = Counter(sample.size for sample in settings.procedure.samples)
+    counts = Counter(sample.pulse_width_ms for sample in settings.procedure.samples)
     assert len(set(counts.values())) == 1
 
 
 def test_every_burst_opens_the_valve_about_as_long(settings):
-    opening = [sample.size * sample.repeats for sample in settings.procedure.samples]
+    opening = [sample.pulse_width_ms * sample.repeats for sample in settings.procedure.samples]
     assert max(opening) / min(opening) < 1.01
 
 
 @pytest.mark.parametrize("path", RIGS, ids=lambda path: path.name)
 def test_a_test_rig_wires_reward_valves_on_pulse_lines(path):
-    # What ValveRig takes from a rig.yml: behaviorBoard main's port and its RewardValve lines on DO1 to DO3.
-    board = yaml.safe_load(path.read_text(encoding="utf-8"))["behaviorBoard"]["main"]
+    # A rig.yml every lab workflow takes (the lab rig model, OpenRigs.Devices ReadLabRig), with what the
+    # calibration reads: behaviorBoard main's port and its RewardValve lines on DO1 to DO3 (WiredOutputs).
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    LabRig.model_validate(data)
+    board = data["behaviorBoard"]["main"]
     valves = [line for line, wired in board["wiring"].items() if wired["device"] == "RewardValve"]
     assert board["portName"]
     assert valves and set(valves) <= {"DO1", "DO2", "DO3"}

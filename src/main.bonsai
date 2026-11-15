@@ -11,12 +11,13 @@
                  xmlns:cv="clr-namespace:Bonsai.Vision;assembly=Bonsai.Vision"
                  xmlns:vid="clr-namespace:OpenRigs.Video;assembly=OpenRigs.Video"
                  xmlns:scr="clr-namespace:Bonsai.Scripting.Expressions;assembly=Bonsai.Scripting.Expressions"
+                 xmlns:dev="clr-namespace:OpenRigs.Devices;assembly=OpenRigs.Devices"
                  xmlns:vc="clr-namespace:CoenQcCalibrateValve;assembly=Extensions"
                  xmlns:sys="clr-namespace:System;assembly=mscorlib"
                  xmlns:harp="clr-namespace:Bonsai.Harp;assembly=Bonsai.Harp"
                  xmlns:beh="clr-namespace:Harp.Behavior;assembly=Harp.Behavior"
                  xmlns="https://bonsai-rx.org/2018/workflow">
-  <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines (Channel or Channels) and FileName; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml (ReadValveRig), and every burst is fired on the board's Harp clock at the procedure's one pulseGapMs (OpenRigs.Core FirePulses). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its repeats. The procedure (pulse widths, repeats) is config\valve-calibration.yml, its widths scaled at Go so the smallest is the MinPulseWidthMs parameter (ScaleWidths); before Go, Test commands fire a few pulses at a width so a valve's opening can be seen (TestTrain). On a rig whose rig.yml has a lick spout stage, OpenRigs.Devices HarpLickSpoutStage homes it and moves the spouts to rig.yml's lickSpoutDefaultPosition, then both in/out axes fully forward, before Ready, and back to the in position once the last burst is weighed (Extensions\Spouts.bonsai). Ready once the board answers and the spouts are in; Go runs the procedure; Finished once every burst is weighed.</Description>
+  <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines (Channel or Channels) and FileName; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml, read into the lab rig model (OpenRigs.Devices ReadLabRig), and every burst is fired on the board's Harp clock at the procedure's one pulseGapMs (OpenRigs.Core FirePulses). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its repeats. The procedure (pulse widths, repeats) is config\valve-calibration.yml, its widths scaled at Go so the smallest is the MinPulseWidthMs parameter (ScaleWidths); before Go, Test commands fire a few pulses at a width so a valve's opening can be seen (TestTrain). On a rig whose rig.yml has a lick spout stage, OpenRigs.Devices HarpLickSpoutStage homes it and moves the spouts to rig.yml's lickSpoutDefaultPosition, then both in/out axes fully forward, before Ready, and back to the in position once the last burst is weighed (Extensions\Spouts.bonsai). Ready once the board answers and the spouts are in; Go runs the procedure; Finished once every burst is weighed.</Description>
   <Workflow>
     <Nodes>
       <Expression xsi:type="ExternalizedMapping">
@@ -26,25 +27,37 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Settings</Name>
-        <Description>RigConfigDirectory is &lt;ConfigRoot&gt;\&lt;MACHINE-NAME&gt;, where the calibration writes its weights. ValveRig is what the calibration takes from rig.yml there (ReadValveRig, src\Extensions\ValveRig.cs): the board's port, its RewardValve lines from wiring and, on a rig with one, the lick spout stage's drivers; it stops the workflow if rig.yml has no board, port or RewardValve. ValveCalibrationSettings is config\valve-calibration.yml expanded over the valves (InterleaveValves, src\Extensions): each sample once per valve in Channels (else the one Channel), in turn, and the priming pulses once per valve, so ManualBalance, RunCalibration and the weights file all follow the bursts as they fire; it stops the workflow if a valve is not a RewardValve in rig.yml or the samples are at different pulseGapMs. Fails at startup if the machine has no configuration directory.</Description>
+        <Description>RigConfigDirectory is &lt;ConfigRoot&gt;\&lt;MACHINE-NAME&gt;, where the calibration writes its weights; RigConfigs is rig.yml there in the lab rig model (OpenRigs.Devices ReadLabRig, as every lab workflow reads it). BehaviorBoard-Main is the board's entry (OpenRigs.Core RigDevice) and RewardValveLines its lines wiring gives a RewardValve (OpenRigs.Devices WiredOutputs); either stops the workflow if rig.yml has no such board or no RewardValve on DO1 to DO3. ValveCalibrationSettings is config\valve-calibration.yml expanded over the valves (InterleaveValves, src\Extensions): each sample once per valve in Channels (else the one Channel), in turn, and the priming pulses once per valve, so ManualBalance, RunCalibration and the weights file all follow the bursts as they fire; it stops the workflow if a valve is not a RewardValve in rig.yml or the samples are at different pulseGapMs. Fails at startup if the machine has no configuration directory.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
               <Property Name="ConfigRoot" DisplayName="ConfigRoot" />
             </Expression>
+            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:ReadLabRig.bonsai">
+              <ConfigRoot>C:\Coen-Lab-Local\RigConfigs</ConfigRoot>
+            </Expression>
+            <Expression xsi:type="MemberSelector">
+              <Selector>BehaviorBoard</Selector>
+            </Expression>
             <Expression xsi:type="Combinator">
-              <Combinator xsi:type="orc:ResolveRigConfigDirectory">
-                <orc:ConfigRoot>C:\Coen-Lab-Local\RigConfigs</orc:ConfigRoot>
+              <Combinator xsi:type="orc:RigDevice">
+                <orc:Name>BehaviorBoard-Main</orc:Name>
               </Combinator>
             </Expression>
             <Expression xsi:type="rx:AsyncSubject">
-              <Name>RigConfigDirectory</Name>
+              <Name>BehaviorBoard-Main</Name>
+            </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>RigConfigs</Name>
             </Expression>
             <Expression xsi:type="Combinator">
-              <Combinator xsi:type="vc:ReadValveRig" />
+              <Combinator xsi:type="dev:WiredOutputs">
+                <dev:Board>BehaviorBoard-Main</dev:Board>
+                <dev:Device>RewardValve</dev:Device>
+              </Combinator>
             </Expression>
             <Expression xsi:type="rx:AsyncSubject">
-              <Name>ValveRig</Name>
+              <Name>RewardValveLines</Name>
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="io:ReadAllText">
@@ -86,11 +99,13 @@
             <Edge From="3" To="4" Label="Source1" />
             <Edge From="5" To="6" Label="Source1" />
             <Edge From="6" To="7" Label="Source1" />
-            <Edge From="7" To="8" Label="Source1" />
-            <Edge From="4" To="8" Label="Source2" />
-            <Edge From="8" To="10" Label="Source1" />
-            <Edge From="9" To="10" Label="Source2" />
+            <Edge From="8" To="9" Label="Source1" />
+            <Edge From="9" To="10" Label="Source1" />
             <Edge From="10" To="11" Label="Source1" />
+            <Edge From="7" To="11" Label="Source2" />
+            <Edge From="11" To="13" Label="Source1" />
+            <Edge From="12" To="13" Label="Source2" />
+            <Edge From="13" To="14" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
@@ -176,15 +191,15 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Hardware</Name>
-        <Description>The behavior board on rig.yml's port (ValveRig), with the PulseController pulsing its RewardValve lines and no other: its TriggerCalibratedPulse fires one pulse of a given width on a line, as in a session. BehaviorBoard.Timestamps publishes the board's Harp clock as Timestamp, which every burst is timed on (OpenRigs.Core FirePulses, at the procedure's pulseGapMs). The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. Ready 1 s after the board's first event, once the PulseController's setup has gone out. The calibration camera (Pip, 10 Nov 2026) is a USB camera plugged in on the balance, a different one on each rig and in no rig.yml: OpenRigs.Video UsbCamera opens the first that is not the rig's own (none of rig.yml's camera serials, no FLIR or Basler vendor id), free-running, and publishes its frames as Camera-Temporary.Data, which LiveView streams as a temporary device and Snapshots saves; none plugged in stops the workflow at start, saying so. Nothing is recorded. Its exposure is the controller's CameraExposureUs parameter, the rig cameras' name and unit (Pip, 10 Nov 2026: one setting for one meaning), taken at the nearest power of two of a second the camera allows: it starts at 15625 (1/64 s) and takes each value the controller sets (OnParameterSet) straight to the open camera, so rig-control's Calibrations page can make the balance's display readable; ParameterDefault shows the starting value 1 s in, once the controller is up. No gain: a USB camera's has no unit common to its models. No camera trigger runs, so DO0 and DO1 stay free.</Description>
+        <Description>The behavior board on rig.yml's port (BehaviorBoard-Main), with the PulseController pulsing its RewardValve lines and no other: its TriggerCalibratedPulse fires one pulse of a given width on a line, as in a session. BehaviorBoard.Timestamps publishes the board's Harp clock as Timestamp, which every burst is timed on (OpenRigs.Core FirePulses, at the procedure's pulseGapMs). The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. Ready 1 s after the board's first event, once the PulseController's setup has gone out. The calibration camera (Pip, 10 Nov 2026) is a USB camera plugged in on the balance, a different one on each rig and in no rig.yml: OpenRigs.Video UsbCamera opens the first that is not the rig's own (none of rig.yml's camera serials, no FLIR or Basler vendor id), free-running, and publishes its frames as Camera-Temporary.Data, which LiveView streams as a temporary device and Snapshots saves; none plugged in stops the workflow at start, saying so. Nothing is recorded. Its exposure is the controller's CameraExposureUs parameter, the rig cameras' name and unit (Pip, 10 Nov 2026: one setting for one meaning), taken at the nearest power of two of a second the camera allows: it starts at 15625 (1/64 s) and takes each value the controller sets (OnParameterSet) straight to the open camera, so rig-control's Calibrations page can make the balance's display readable; ParameterDefault shows the starting value 1 s in, once the controller is up. No gain: a USB camera's has no unit common to its models. No camera trigger runs, so DO0 and DO1 stay free.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="SubscribeSubject">
-              <Name>ValveRig</Name>
+              <Name>BehaviorBoard-Main</Name>
             </Expression>
             <Expression xsi:type="PropertyMapping">
               <PropertyMappings>
-                <Property Name="PortName" Selector="PortName" />
+                <Property Name="PortName" Selector="Settings.PortName" />
               </PropertyMappings>
             </Expression>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.BehaviorBoard.bonsai">
@@ -195,11 +210,11 @@
               <EventsSubjectName>BehaviorBoard-Main.Data</EventsSubjectName>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
-              <Name>ValveRig</Name>
+              <Name>RewardValveLines</Name>
             </Expression>
             <Expression xsi:type="PropertyMapping">
               <PropertyMappings>
-                <Property Name="OutputPulseEnable" Selector="OutputPulseEnable" />
+                <Property Name="OutputPulseEnable" />
               </PropertyMappings>
             </Expression>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.PulseController.bonsai">

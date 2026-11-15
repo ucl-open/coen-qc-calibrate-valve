@@ -1,4 +1,5 @@
 using Bonsai;
+using Harp.Behavior;
 using OpenRigs.Core.Calibration;
 using System;
 using System.Collections.Generic;
@@ -43,7 +44,7 @@ namespace CoenQcCalibrateValve
         public static PulseTrain Of(DispenseSample sample, int line, int count)
         {
             var valve = sample as ValveSample;
-            return new PulseTrain { Line = valve != null ? valve.Channel : line, WidthMs = sample.Size, Count = count, PulseGapMs = sample.PulseGapMs };
+            return new PulseTrain { Line = valve != null ? valve.Channel : line, WidthMs = sample.PulseWidthMs, Count = count, PulseGapMs = sample.PulseGapMs };
         }
     }
 
@@ -75,6 +76,21 @@ namespace CoenQcCalibrateValve
             return parsed.ToArray();
         }
 
+        /// <summary>Refuses any line that is not one of rig.yml's RewardValves (OpenRigs.Devices WiredOutputs' lines).</summary>
+        public static void Check(DigitalOutputs rewardValves, int[] lines)
+        {
+            foreach (var line in lines)
+            {
+                var output = (DigitalOutputs)Enum.Parse(typeof(DigitalOutputs), "DO" + line);
+                if ((rewardValves & output) == 0)
+                {
+                    throw new InvalidOperationException(string.Format(
+                        "DO{0} is not a reward valve: rig.yml's behaviorBoard: main: wiring gives RewardValve only to {1}.",
+                        line, rewardValves));
+                }
+            }
+        }
+
         /// <summary>The valves of an expanded procedure, in the order they fire.</summary>
         public static int[] Of(DispenseProcedure procedure)
         {
@@ -103,7 +119,7 @@ namespace CoenQcCalibrateValve
     }
 
     [Combinator]
-    [Description("Expands the valve calibration's procedure over the valves to calibrate: each round (each width's first sample, then each width's second, ...) in a new random order every run, each sample once per valve, in turn (DO1's burst, weighed, then DO2's, weighed, and so on), and the priming pulses once per valve. Channels lists the valves (such as 1, 2, or DO1, DO2); empty, the one Channel. Input: (the settings, rig.yml's valves); stops the workflow if a valve is not a RewardValve in rig.yml's wiring or the samples are at different pulseGapMs.")]
+    [Description("Expands the valve calibration's procedure over the valves to calibrate: each round (each width's first sample, then each width's second, ...) in a new random order every run, each sample once per valve, in turn (DO1's burst, weighed, then DO2's, weighed, and so on), and the priming pulses once per valve. Channels lists the valves (such as 1, 2, or DO1, DO2); empty, the one Channel. Input: (the settings, rig.yml's RewardValve lines); stops the workflow if a valve is not a RewardValve in rig.yml's wiring or the samples are at different pulseGapMs.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
     public class InterleaveValves
     {
@@ -124,12 +140,12 @@ namespace CoenQcCalibrateValve
             set { channels = value; }
         }
 
-        public IObservable<DispenseCalibration> Process(IObservable<Tuple<DispenseCalibration, ValveRig>> source)
+        public IObservable<DispenseCalibration> Process(IObservable<Tuple<DispenseCalibration, DigitalOutputs>> source)
         {
             return source.Select(input =>
             {
                 var valves = Valves.Parse(Channels, Channel);
-                input.Item2.Check(valves);
+                Valves.Check(input.Item2, valves);
                 return Expand(input.Item1, valves, new Random());
             });
         }
@@ -153,7 +169,7 @@ namespace CoenQcCalibrateValve
                 {
                     expanded.Add(new ValveSample
                     {
-                        Size = sample.Size,
+                        PulseWidthMs = sample.PulseWidthMs,
                         Repeats = sample.Repeats,
                         PulseGapMs = sample.PulseGapMs,
                         Channel = valve
@@ -174,8 +190,8 @@ namespace CoenQcCalibrateValve
             foreach (var sample in samples)
             {
                 int round;
-                seen.TryGetValue(sample.Size, out round);
-                seen[sample.Size] = round + 1;
+                seen.TryGetValue(sample.PulseWidthMs, out round);
+                seen[sample.PulseWidthMs] = round + 1;
                 while (rounds.Count <= round) rounds.Add(new List<DispenseSample>());
                 rounds[round].Add(sample);
             }
@@ -194,7 +210,7 @@ namespace CoenQcCalibrateValve
     }
 
     [Combinator]
-    [Description("Each sample as its burst: its pulses at its width on its valve (an expanded procedure's sample; any other on Channel), at its pulseGapMs. Fed the procedure, the priming bursts: an equal share of the priming pulses on each valve in turn, at the priming size and the procedure's pulseGapMs.")]
+    [Description("Each sample as its burst: its pulses at its width on its valve (an expanded procedure's sample; any other on Channel), at its pulseGapMs. Fed the procedure, the priming bursts: an equal share of the priming pulses on each valve in turn, at the priming pulse width and the procedure's pulseGapMs.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
     public class ValveTrains
     {
@@ -221,14 +237,14 @@ namespace CoenQcCalibrateValve
         {
             if (procedure.Samples == null || procedure.Samples.Count == 0)
             {
-                throw new InvalidOperationException("The dispense procedure has no samples to take the priming size from.");
+                throw new InvalidOperationException("The dispense procedure has no samples to take the priming pulse width from.");
             }
             var valves = Valves.Of(procedure);
             if (valves.Length == 0) valves = new[] { channel };
-            int size = procedure.PrimingSize ?? procedure.Samples.Max(sample => sample.Size);
+            int width = procedure.PrimingPulseWidthMs ?? procedure.Samples.Max(sample => sample.PulseWidthMs);
             int gap = Valves.Gap(procedure);
             int each = procedure.PrimingPulses / valves.Length;
-            return valves.Select(valve => new PulseTrain { Line = valve, WidthMs = size, Count = each, PulseGapMs = gap }).ToArray();
+            return valves.Select(valve => new PulseTrain { Line = valve, WidthMs = width, Count = each, PulseGapMs = gap }).ToArray();
         }
     }
 
@@ -262,7 +278,7 @@ namespace CoenQcCalibrateValve
                 var drip = Parse(text);
                 var valves = Valves.Of(p);
                 int line = drip.Item2 > 0 ? drip.Item2 : valves.Length > 0 ? valves[0] : Channel;
-                return new PulseTrain { Line = line, WidthMs = p.Samples.Max(x => x.Size), Count = drip.Item1, PulseGapMs = Valves.Gap(p) };
+                return new PulseTrain { Line = line, WidthMs = p.Samples.Max(x => x.PulseWidthMs), Count = drip.Item1, PulseGapMs = Valves.Gap(p) };
             }));
         }
 
@@ -310,10 +326,10 @@ namespace CoenQcCalibrateValve
         public static DispenseCalibration Scale(DispenseCalibration settings, int min)
         {
             var samples = settings.Procedure.Samples;
-            int smallest = samples.Min(sample => sample.Size);
+            int smallest = samples.Min(sample => sample.PulseWidthMs);
             foreach (var sample in samples)
             {
-                sample.Size = (int)Math.Round((double)(sample.Size * min) / smallest, MidpointRounding.AwayFromZero);
+                sample.PulseWidthMs = (int)Math.Round((double)(sample.PulseWidthMs * min) / smallest, MidpointRounding.AwayFromZero);
             }
             return settings;
         }
@@ -396,7 +412,7 @@ namespace CoenQcCalibrateValve
                 var valve = weighed.Item2 as ValveSample;
                 return new ValveWeighing
                 {
-                    pulseWidthMs = weighed.Item2.Size,
+                    pulseWidthMs = weighed.Item2.PulseWidthMs,
                     repeats = weighed.Item2.Repeats + input.Item2,
                     beforeG = weighed.Item1.Item2,
                     afterG = weighed.Item1.Item1,

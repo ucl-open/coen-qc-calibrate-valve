@@ -11,12 +11,14 @@ behaviorBoard:
       outputPulseEnable: DO1
       outputs:
         DO1: { discriminatorType: CalibratedPulse, artefact: calibration/valve-DO1.json }
+        DO2: { discriminatorType: FixedPulse, pulseWidthMs: 0 }
+        DO3: { discriminatorType: FixedPulse, pulseWidthMs: 0 }
     runningWheel:
       countsPerRev: 4096
       wheelDiameterMm: 150.0
     wiring:
       DO0: { device: CameraTrigger, targets: [Camera-Overhead] }
-      DO1: { device: RewardValve }
+      DO1: { device: RewardValve, side: left }
 camera:
   overhead:
     binning: 1
