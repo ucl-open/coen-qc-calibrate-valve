@@ -10,7 +10,7 @@
 
 ## 2026-11-14 Dome-task alignment audit
 
-- **Done 15 Nov 2026: log through the lab's loggers.** `valve-weights.csv` (`pulseWidthMs`, `repeats`, `beforeG`, `afterG`, `channel`, `pulseGapMs`) and `valve-pulses.csv` (`harpTime`, `register`, `value`) are written by OpenRigs.Logging's `CsvWriter`. Was: written by Bonsai's own `CsvWriter` (dome-task alignment audit, 14 Nov 2026).
+- **Done 15 Nov 2026: log through the lab's loggers.** `valve-weights.csv` (`pulseWidthMs`, `pulses`, `beforeG`, `afterG`, `channel`, `pulseGapMs`) and `valve-pulses.csv` (`harpTime`, `register`, `value`) are written by OpenRigs.Logging's `CsvWriter`. Was: written by Bonsai's own `CsvWriter` (dome-task alignment audit, 14 Nov 2026).
 
 ## Measure the in/out (Radial) motors' forward travel
 

@@ -170,7 +170,7 @@ namespace CoenQcCalibrateValve
                     expanded.Add(new ValveSample
                     {
                         PulseWidthMs = sample.PulseWidthMs,
-                        Repeats = sample.Repeats,
+                        Pulses = sample.Pulses,
                         PulseGapMs = sample.PulseGapMs,
                         Channel = valve
                     });
@@ -225,7 +225,7 @@ namespace CoenQcCalibrateValve
 
         public IObservable<PulseTrain> Process(IObservable<DispenseSample> source)
         {
-            return source.Select(sample => PulseTrain.Of(sample, Channel, sample.Repeats));
+            return source.Select(sample => PulseTrain.Of(sample, Channel, sample.Pulses));
         }
 
         public IObservable<PulseTrain> Process(IObservable<DispenseProcedure> source)
@@ -251,7 +251,7 @@ namespace CoenQcCalibrateValve
     // Drips (Pip, 8 Nov 2026): a drop can hang on the spout after a burst and fall into the next
     // weighing, so once a weight is due rig-control fires short bursts of the width tested, one Drip
     // command at a time, until the balance's display moves, and only then reads it. A sample's drip
-    // pulses are its own: they are added to its row's repeats.
+    // pulses are its own: they are added to its row's pulses.
     [Combinator]
     [Description("Each Drip command as a burst: its text is the pulse count and, for the baseline, the line (such as '1 DO2'). With a sample (second input), at the sample's width on its valve; with the procedure, at its largest sample's width on the line named, else its first valve. At the procedure's pulseGapMs.")]
     [WorkflowElementCategory(ElementCategory.Combinator)]
@@ -383,7 +383,7 @@ namespace CoenQcCalibrateValve
     public class ValveWeighing
     {
         public double pulseWidthMs { get; set; }
-        public int repeats { get; set; }
+        public int pulses { get; set; }
         public double beforeG { get; set; }
         public double afterG { get; set; }
         public int channel { get; set; }
@@ -413,7 +413,7 @@ namespace CoenQcCalibrateValve
                 return new ValveWeighing
                 {
                     pulseWidthMs = weighed.Item2.PulseWidthMs,
-                    repeats = weighed.Item2.Repeats + input.Item2,
+                    pulses = weighed.Item2.Pulses + input.Item2,
                     beforeG = weighed.Item1.Item2,
                     afterG = weighed.Item1.Item1,
                     channel = valve != null ? valve.Channel : Channel,

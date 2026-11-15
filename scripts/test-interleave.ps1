@@ -45,9 +45,9 @@ $refusals = [ordered]@{
 }
 foreach ($case in $refusals.Keys) { Check "refused: $case" (Refused { Lines (Rig $refusals[$case]) }) }
 
-function New-Sample($width, $repeats, $gap) {
+function New-Sample($width, $pulses, $gap) {
     $sample = New-Object OpenRigs.Core.Calibration.DispenseSample
-    $sample.PulseWidthMs = $width; $sample.Repeats = $repeats; $sample.PulseGapMs = $gap
+    $sample.PulseWidthMs = $width; $sample.Pulses = $pulses; $sample.PulseGapMs = $gap
     $sample
 }
 function New-Settings($widths = @(@(40, 250), @(20, 500)), $gap = 80) {
@@ -77,7 +77,7 @@ Check 'expanding samples at different gaps refused' (Refused { [CoenQcCalibrateV
 $all = [CoenQcCalibrateValve.InterleaveValves]::Expand((New-Settings), [int[]]@(1, 2), $null).Procedure
 $order = @($all.Samples | ForEach-Object { "$($_.PulseWidthMs)@$($_.Channel)" }) -join ' '
 Check "two valves: each burst on each in turn ($order)" ($order -eq '40@1 40@2 20@1 20@2')
-Check 'two valves: repeats and gap kept' ((@($all.Samples | ForEach-Object { "$($_.Repeats)/$($_.PulseGapMs)" }) -join ',') -eq '250/80,250/80,500/80,500/80')
+Check 'two valves: pulses and gap kept' ((@($all.Samples | ForEach-Object { "$($_.Pulses)/$($_.PulseGapMs)" }) -join ',') -eq '250/80,250/80,500/80,500/80')
 Check 'two valves: priming once per valve, counted together' ($all.PrimingPulses -eq 10)
 Check 'two valves: the valves read back in firing order' ((@([CoenQcCalibrateValve.Valves]::Of($all)) -join ',') -eq '1,2')
 
@@ -95,11 +95,11 @@ foreach ($seed in 1..40) {
     $ok = ((@($widths[0..5] | Sort-Object) -join ',') -eq '20,20,40,40,70,70') -and ((@($widths[6..11] | Sort-Object) -join ',') -eq '20,20,40,40,70,70') -and ((@($widths[12..13]) -join ',') -eq '20,20')
     $ok = $ok -and ((@($s | ForEach-Object { $_.Channel }) -join '') -eq '12121212121212')
     $ok = $ok -and (@(0..6 | Where-Object { $widths[2 * $_] -ne $widths[2 * $_ + 1] }).Count -eq 0)
-    $ok = $ok -and (@($s | Where-Object { $_.Repeats -ne @{20 = 500; 40 = 250; 70 = 100}[$_.PulseWidthMs] }).Count -eq 0)
+    $ok = $ok -and (@($s | Where-Object { $_.Pulses -ne @{20 = 500; 40 = 250; 70 = 100}[$_.PulseWidthMs] }).Count -eq 0)
     if (-not $ok) { break }
     $orders[($widths -join ' ')] = 1
 }
-Check 'shuffled: every round has its widths, both valves in turn, repeats kept' $ok
+Check 'shuffled: every round has its widths, both valves in turn, pulses kept' $ok
 Check "shuffled: the order changes from run to run ($($orders.Count) orders in 40)" ($orders.Count -gt 4)
 
 # The bursts as FirePulses trains.
@@ -126,7 +126,7 @@ $ladder = { New-Settings @(@(40, 300), @(20, 600), @(25, 480), @(100, 120), @(30
 $scale = [CoenQcCalibrateValve.ScaleWidths]
 $scaled = $scale::Scale((& $ladder), 30).Procedure.Samples
 Check "min 30: widths 30 to 150 ($(@($scaled | ForEach-Object { $_.PulseWidthMs }) -join ','))" ((@($scaled | ForEach-Object { $_.PulseWidthMs }) -join ',') -eq '60,30,38,150,45,105,75')
-Check 'min 30: pulses as written' ((@($scaled | ForEach-Object { $_.Repeats }) -join ',') -eq '300,600,480,120,400,171,240')
+Check 'min 30: pulses as written' ((@($scaled | ForEach-Object { $_.Pulses }) -join ',') -eq '300,600,480,120,400,171,240')
 $twice = $scale::Scale($scale::Scale((& $ladder), 15), 15).Procedure.Samples
 Check "min 15: scaling twice is scaling once ($(@($twice | ForEach-Object { $_.PulseWidthMs }) -join ','))" ((@($twice | ForEach-Object { $_.PulseWidthMs }) -join ',') -eq '30,15,19,75,23,53,38')
 Check 'min 20: the procedure as written' ((@($scale::Scale((& $ladder), 20).Procedure.Samples | ForEach-Object { $_.PulseWidthMs }) -join ',') -eq '40,20,25,100,30,70,50')
@@ -144,7 +144,7 @@ Check "a test: its width on its line at the procedure's gap ($(Train $trains[0])
 $inner = New-Object 'Tuple[Tuple[double,double],OpenRigs.Core.Calibration.DispenseSample]' ([Tuple]::Create([double]20.5, [double]20.1)), $all.Samples[1]
 $weighed = [Tuple]::Create($inner, [int]2)
 $row = (Items ([CoenQcCalibrateValve.ValveWeighing]) ((New-Object CoenQcCalibrateValve.ValveWeighingRow).Process((Obs $weighed.GetType() $weighed))))[0]
-Check 'a weights row: its drips in its repeats, its valve and its gap' (($row.repeats -eq 252) -and ($row.channel -eq 2) -and ($row.pulseGapMs -eq 80) -and ($row.beforeG -eq 20.1))
+Check 'a weights row: its drips in its pulses, its valve and its gap' (($row.pulses -eq 252) -and ($row.channel -eq 2) -and ($row.pulseGapMs -eq 80) -and ($row.beforeG -eq 20.1))
 
 # Delivering water (deliver.bonsai) at the calibration file's gap, on a wired valve only.
 function Deliver($channel, $gap) {

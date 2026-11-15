@@ -91,7 +91,7 @@ def test_rounds_measure_every_width_alike(settings):
 
 
 def test_every_burst_opens_the_valve_about_as_long(settings):
-    opening = [sample.pulse_width_ms * sample.repeats for sample in settings.procedure.samples]
+    opening = [sample.pulse_width_ms * sample.pulses for sample in settings.procedure.samples]
     assert max(opening) / min(opening) < 1.01
 
 
