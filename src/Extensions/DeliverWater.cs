@@ -66,7 +66,7 @@ namespace CoenQcCalibrateValve
                     throw new InvalidOperationException(string.Format("PulseGapMs {0} is not a gap: give the valve calibration file's pulseGapMs, 1 to 10000 ms.", PulseGapMs));
                 }
                 Valves.Check(input.Item2, new[] { Channel });
-                return new PulseTrain { Line = Channel, WidthMs = PulseWidthMs, Count = Pulses, PulseGapMs = PulseGapMs };
+                return new PulseTrain { Line = Channel, PulseWidthMs = PulseWidthMs, Pulses = Pulses, PulseGapMs = PulseGapMs };
             });
         }
     }

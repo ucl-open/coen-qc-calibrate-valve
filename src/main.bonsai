@@ -415,8 +415,8 @@
             <Expression xsi:type="InputMapping">
               <PropertyMappings>
                 <Property Name="Line" Selector="Line" />
-                <Property Name="WidthMs" Selector="WidthMs" />
-                <Property Name="Count" Selector="Count" />
+                <Property Name="PulseWidthMs" Selector="PulseWidthMs" />
+                <Property Name="Pulses" Selector="Pulses" />
                 <Property Name="PulseGapMs" Selector="PulseGapMs" />
               </PropertyMappings>
             </Expression>
@@ -426,8 +426,8 @@
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="orc:FirePulses">
                 <orc:Line>1</orc:Line>
-                <orc:WidthMs>1</orc:WidthMs>
-                <orc:Count>0</orc:Count>
+                <orc:PulseWidthMs>1</orc:PulseWidthMs>
+                <orc:Pulses>0</orc:Pulses>
                 <orc:PulseGapMs>0</orc:PulseGapMs>
               </Combinator>
             </Expression>
@@ -632,8 +632,8 @@
                         <Expression xsi:type="InputMapping">
                           <PropertyMappings>
                             <Property Name="Line" Selector="Line" />
-                            <Property Name="WidthMs" Selector="WidthMs" />
-                            <Property Name="Count" Selector="Count" />
+                            <Property Name="PulseWidthMs" Selector="PulseWidthMs" />
+                            <Property Name="Pulses" Selector="Pulses" />
                             <Property Name="PulseGapMs" Selector="PulseGapMs" />
                           </PropertyMappings>
                         </Expression>
@@ -643,16 +643,16 @@
                         <Expression xsi:type="Combinator">
                           <Combinator xsi:type="orc:FirePulses">
                             <orc:Line>1</orc:Line>
-                            <orc:WidthMs>1</orc:WidthMs>
-                            <orc:Count>0</orc:Count>
+                            <orc:PulseWidthMs>1</orc:PulseWidthMs>
+                            <orc:Pulses>0</orc:Pulses>
                             <orc:PulseGapMs>0</orc:PulseGapMs>
                           </Combinator>
                         </Expression>
                         <Expression xsi:type="InputMapping">
                           <PropertyMappings>
                             <Property Name="Line" Selector="Line" />
-                            <Property Name="WidthMs" Selector="WidthMs" />
-                            <Property Name="Count" Selector="Count" />
+                            <Property Name="PulseWidthMs" Selector="PulseWidthMs" />
+                            <Property Name="Pulses" Selector="Pulses" />
                             <Property Name="PulseGapMs" Selector="PulseGapMs" />
                           </PropertyMappings>
                         </Expression>
@@ -662,8 +662,8 @@
                         <Expression xsi:type="Combinator">
                           <Combinator xsi:type="orc:FirePulses">
                             <orc:Line>1</orc:Line>
-                            <orc:WidthMs>1</orc:WidthMs>
-                            <orc:Count>0</orc:Count>
+                            <orc:PulseWidthMs>1</orc:PulseWidthMs>
+                            <orc:Pulses>0</orc:Pulses>
                             <orc:PulseGapMs>0</orc:PulseGapMs>
                           </Combinator>
                         </Expression>
@@ -763,8 +763,8 @@
                         <Expression xsi:type="InputMapping">
                           <PropertyMappings>
                             <Property Name="Line" Selector="Line" />
-                            <Property Name="WidthMs" Selector="WidthMs" />
-                            <Property Name="Count" Selector="Count" />
+                            <Property Name="PulseWidthMs" Selector="PulseWidthMs" />
+                            <Property Name="Pulses" Selector="Pulses" />
                             <Property Name="PulseGapMs" Selector="PulseGapMs" />
                           </PropertyMappings>
                         </Expression>
@@ -774,16 +774,16 @@
                         <Expression xsi:type="Combinator">
                           <Combinator xsi:type="orc:FirePulses">
                             <orc:Line>1</orc:Line>
-                            <orc:WidthMs>1</orc:WidthMs>
-                            <orc:Count>0</orc:Count>
+                            <orc:PulseWidthMs>1</orc:PulseWidthMs>
+                            <orc:Pulses>0</orc:Pulses>
                             <orc:PulseGapMs>0</orc:PulseGapMs>
                           </Combinator>
                         </Expression>
                         <Expression xsi:type="InputMapping">
                           <PropertyMappings>
                             <Property Name="Line" Selector="Line" />
-                            <Property Name="WidthMs" Selector="WidthMs" />
-                            <Property Name="Count" Selector="Count" />
+                            <Property Name="PulseWidthMs" Selector="PulseWidthMs" />
+                            <Property Name="Pulses" Selector="Pulses" />
                             <Property Name="PulseGapMs" Selector="PulseGapMs" />
                           </PropertyMappings>
                         </Expression>
@@ -793,8 +793,8 @@
                         <Expression xsi:type="Combinator">
                           <Combinator xsi:type="orc:FirePulses">
                             <orc:Line>1</orc:Line>
-                            <orc:WidthMs>1</orc:WidthMs>
-                            <orc:Count>0</orc:Count>
+                            <orc:PulseWidthMs>1</orc:PulseWidthMs>
+                            <orc:Pulses>0</orc:Pulses>
                             <orc:PulseGapMs>0</orc:PulseGapMs>
                           </Combinator>
                         </Expression>

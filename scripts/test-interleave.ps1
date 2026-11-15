@@ -16,7 +16,7 @@ function Check($name, $ok) {
     if ($ok) { "  ok    $name" } else { "  FAIL  $name"; $script:failed++ }
 }
 function Refused($block) { try { $null = & $block; $false } catch { $true } }
-function Train($t) { "$($t.Count)x$($t.WidthMs)@DO$($t.Line)/$($t.PulseGapMs)" }
+function Train($t) { "$($t.Pulses)x$($t.PulseWidthMs)@DO$($t.Line)/$($t.PulseGapMs)" }
 
 # The rig model: lib-open-rigs' LabRig (OpenRigs.Devices ReadLabRig) reads a box, an arena and a dome
 # rig.yml; the valves are the lines its wiring gives a RewardValve (OpenRigs.Devices WiredOutputs).

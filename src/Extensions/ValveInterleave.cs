@@ -37,14 +37,14 @@ namespace CoenQcCalibrateValve
     public class PulseTrain
     {
         public int Line { get; set; }
-        public int WidthMs { get; set; }
-        public int Count { get; set; }
+        public int PulseWidthMs { get; set; }
+        public int Pulses { get; set; }
         public int PulseGapMs { get; set; }
 
         public static PulseTrain Of(DispenseSample sample, int line, int count)
         {
             var valve = sample as ValveSample;
-            return new PulseTrain { Line = valve != null ? valve.Channel : line, WidthMs = sample.PulseWidthMs, Count = count, PulseGapMs = sample.PulseGapMs };
+            return new PulseTrain { Line = valve != null ? valve.Channel : line, PulseWidthMs = sample.PulseWidthMs, Pulses = count, PulseGapMs = sample.PulseGapMs };
         }
     }
 
@@ -244,7 +244,7 @@ namespace CoenQcCalibrateValve
             int width = procedure.PrimingPulseWidthMs ?? procedure.Samples.Max(sample => sample.PulseWidthMs);
             int gap = Valves.Gap(procedure);
             int each = procedure.PrimingPulses / valves.Length;
-            return valves.Select(valve => new PulseTrain { Line = valve, WidthMs = width, Count = each, PulseGapMs = gap }).ToArray();
+            return valves.Select(valve => new PulseTrain { Line = valve, PulseWidthMs = width, Pulses = each, PulseGapMs = gap }).ToArray();
         }
     }
 
@@ -278,7 +278,7 @@ namespace CoenQcCalibrateValve
                 var drip = Parse(text);
                 var valves = Valves.Of(p);
                 int line = drip.Item2 > 0 ? drip.Item2 : valves.Length > 0 ? valves[0] : Channel;
-                return new PulseTrain { Line = line, WidthMs = p.Samples.Max(x => x.PulseWidthMs), Count = drip.Item1, PulseGapMs = Valves.Gap(p) };
+                return new PulseTrain { Line = line, PulseWidthMs = p.Samples.Max(x => x.PulseWidthMs), Pulses = drip.Item1, PulseGapMs = Valves.Gap(p) };
             }));
         }
 
@@ -348,7 +348,7 @@ namespace CoenQcCalibrateValve
             return source.Select(input =>
             {
                 var test = Parse(input.Item1);
-                return new PulseTrain { Line = test.Item3, WidthMs = test.Item1, Count = test.Item2, PulseGapMs = Valves.Gap(input.Item2.Procedure) };
+                return new PulseTrain { Line = test.Item3, PulseWidthMs = test.Item1, Pulses = test.Item2, PulseGapMs = Valves.Gap(input.Item2.Procedure) };
             });
         }
 
