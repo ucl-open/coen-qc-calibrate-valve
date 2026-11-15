@@ -43,7 +43,6 @@ procedure:
     - { pulseWidthMs: 30, repeats: 400, pulseGapMs: 80 }
     - { pulseWidthMs: 50, repeats: 240, pulseGapMs: 80 }
   xName: pulse_width
-  xUnit: ms
   primingPulses: 5
   primingPulseWidthMs: 500 # ms each, so the line is full before the baseline (Pip); unset is the largest sample's
   densityGPerMl: 1.0
