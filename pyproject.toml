@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest"]
+dev = ["jsonschema>=4.26.0", "pytest"]
 
 [tool.uv]
 package = false

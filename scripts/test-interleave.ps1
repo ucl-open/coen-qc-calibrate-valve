@@ -2,7 +2,7 @@
 # dome rig.yml, and the refusals), the valves parsed from Channels, the procedure expanded over them
 # (each sample once per valve, in turn; priming once per valve; one pulseGapMs), each burst's
 # PulseTrain for FirePulses, and the spouts' targets.
-# Run after lib-open-rigs' check-workflow-builds.ps1 has compiled the extension, which leaves
+# Run after app-rig-setup's workflows\check-workflow-builds.ps1 has compiled the extension, which leaves
 # Extensions.dll and its packages in %TEMP%\check-workflow-builds-<this repo's folder name>.
 # Exit 0 when every check passes.
 param([string]$Bin = (Join-Path ([IO.Path]::GetTempPath()) ('check-workflow-builds-' + (Split-Path (Split-Path $PSScriptRoot) -Leaf))))

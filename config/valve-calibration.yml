@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../.venv/Lib/site-packages/open_rigs/schemas/calibration.json#/$defs/DispenseCalibration
 # Settings of the valve calibration (OpenRigs.Core DispenseCalibration's form), read at Start by
 # src\main.bonsai for the bursts and by rig-control for the fit (densityGPerMl).
 # The fit is rig-control's Python (a LinearFit), never Bonsai's. The valve lines, the board's port

@@ -1,8 +1,12 @@
 """The committed settings and test rigs, checked without the rig or Bonsai."""
 
+import json
+import re
 from collections import Counter
+from importlib.resources import files
 from pathlib import Path
 
+import jsonschema
 import pytest
 import yaml
 from open_rigs.core.dispense import DispenseCalibration
@@ -10,6 +14,42 @@ from open_rigs.rigs.lab_rig import LabRig
 
 ROOT = Path(__file__).parents[1]
 RIGS = sorted((ROOT / "tests" / "rigs").glob("*.yml"))
+SETTINGS = ROOT / "config" / "valve-calibration.yml"
+
+
+def closed(node):
+    """The schema with every object that lists its properties closed to others, as lib-open-rigs'
+    check-config-schemas.py and the generated DeserializeFromYaml are."""
+    if isinstance(node, dict):
+        node = {key: closed(value) for key, value in node.items()}
+        if isinstance(node.get("properties"), dict) and "additionalProperties" not in node:
+            node["additionalProperties"] = False
+    elif isinstance(node, list):
+        node = [closed(value) for value in node]
+    return node
+
+
+def schema_errors(data):
+    """What the schema the file's yaml-language-server line names refuses in data, as the shared checks read it."""
+    named = re.match(r"# yaml-language-server: \$schema=(\S+)#/\$defs/(\w+)\n", SETTINGS.read_text(encoding="utf-8"))
+    assert named, "config\\valve-calibration.yml names no schema, so the shared checks skip it"
+    path = (SETTINGS.parent / named.group(1)).resolve()
+    assert path == Path(str(files("open_rigs") / "schemas" / "calibration.json")).resolve()
+    schema = closed(json.loads(path.read_text(encoding="utf-8")))
+    schema = {"$schema": schema.get("$schema"), "$defs": schema["$defs"], "$ref": f"#/$defs/{named.group(2)}"}
+    return [error.message for error in jsonschema.Draft202012Validator(schema).iter_errors(data)]
+
+
+def test_the_settings_fit_the_calibration_schema():
+    assert schema_errors(yaml.safe_load(SETTINGS.read_text(encoding="utf-8"))) == []
+
+
+def test_the_schema_refuses_an_unknown_key():
+    # Audit, 15 Nov 2026: DispenseCalibration keeps only the keys it knows, so a misspelt one (primingSize for
+    # primingPulseWidthMs) passed the model; the closed schema refuses it.
+    data = yaml.safe_load(SETTINGS.read_text(encoding="utf-8"))
+    data["procedure"]["primingSize"] = 500
+    assert schema_errors(data) == ["Additional properties are not allowed ('primingSize' was unexpected)"]
 
 
 def unknown_keys(given, kept, path=""):
@@ -27,7 +67,7 @@ def unknown_keys(given, kept, path=""):
 
 @pytest.fixture(scope="module")
 def settings():
-    data = yaml.safe_load((ROOT / "config" / "valve-calibration.yml").read_text(encoding="utf-8"))
+    data = yaml.safe_load(SETTINGS.read_text(encoding="utf-8"))
     model = DispenseCalibration.model_validate(data)
     assert not list(unknown_keys(data, model.model_dump(by_alias=True, exclude_unset=True)))
     return model
