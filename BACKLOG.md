@@ -1,5 +1,9 @@
 # Backlog
 
+## 2026-11-16 ReadyGate's WorkflowStages (OpenRigs.Core .22, Devices .26)
+
+Done (Pip, 16 Nov 2026): `src\main.bonsai` and `src\deliver.bonsai` name their own stage (`CalibrationReady`, `DeliveryReady`) in ReadyGate's new `WorkflowStages`, and `ReadyWaitsFor` is the pieces' `HarpClockSet` alone. Ready waits for the same stages as before. `tests\test_workflow.py` expects no `hardware_problems`: lint holds `WorkflowStages` equal to the workflow's own `AnnounceStage` nodes, so the exception for the workflow's own stage is gone.
+
 ## 2026-11-16 NoExperimentFolder (OpenRigs.Logging .16)
 
 Done: `src\main.bonsai` and `src\deliver.bonsai` include lib-open-rigs' `NoExperimentFolder` (`SubjectId` `_valve-calibration_`) in their Settings group, in place of their own never-published `PathPrefix`; `src\Extensions\Spouts.bonsai` drops its own `SubjectId` (the same `_valve-calibration_`). Nothing written changes: no piece logs, the spouts still go to rig.yml's `lickSpoutDefaultPosition`, and the weights and pulses files are as before. `tests\test_workflow.py` holds both workflows to `no_experiment_folder_problems`.
@@ -18,7 +22,7 @@ Done: the calibration and the delivery use lib's pieces, never a device opened b
 
 Suggestions for lib (lib frozen at 5ea5729 for this push):
 - Done in Devices .23 (above): `ClockFromBoard`'s `Timestamp` was the heartbeat, once a second, so `FirePulses` on it (DeliverReward on a box-clocked rig) fired one pulse a second.
-- `hardware_problems` knows only the pieces' Ready stages; this workflow announces its own (`CalibrationReady`, `DeliveryReady`: pulse setup out and spouts in), so `tests\test_workflow.py` expects that one problem. A `ReadyGate` property for a workflow's own stages, or lint reading local includes, would end the exception.
+- Done 16 Nov 2026 (ReadyGate's WorkflowStages, above): `hardware_problems` knew only the pieces' Ready stages; this workflow announces its own (`CalibrationReady`, `DeliveryReady`: pulse setup out and spouts in), so `tests\test_workflow.py` expects that one problem. A `ReadyGate` property for a workflow's own stages, or lint reading local includes, would end the exception.
 - A conditional piece (a stage only where rig.yml has one) is invisible to `required_devices` here, as it sits in `Extensions\Spouts.bonsai`.
 
 ## Audit round 3 of 3 (15 Nov 2026)

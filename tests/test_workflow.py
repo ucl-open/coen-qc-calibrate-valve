@@ -16,7 +16,7 @@ ROOT = Path(__file__).parents[1]
 RIGS = sorted((ROOT / "tests" / "rigs").glob("*.yml"))
 W, XSI = lint.W, lint.XSI
 # Each workflow and the stage it announces itself: the old Ready (1 s after the board's first event, once PulseOutputs'
-# setup has gone out, and the spouts in), which the lab's ReadyGate waits for beside the clock.
+# setup has gone out, and the spouts in), ReadyGate's WorkflowStages, which Ready waits for beside the clock.
 WORKFLOWS = {"main.bonsai": "CalibrationReady", "deliver.bonsai": "DeliveryReady"}
 
 
@@ -26,10 +26,8 @@ def wf(request):
 
 
 def test_the_hardware_is_the_lab_pieces(wf):
-    # The one problem is the workflow's own stage: hardware_problems knows only the pieces' stages, and the
-    # calibration's Ready also waits for the pulse setup and the spouts (Spouts.bonsai, which it does not read).
-    stage = WORKFLOWS[wf.file]
-    assert lint.hardware_problems(wf) == [f"ReadyGate's ReadyWaitsFor is HarpClockSet, {stage}, not HarpClockSet"]
+    assert lint.hardware_problems(wf) == []
+    assert dict(lint.hardware(wf))[lint.READY_GATE]["WorkflowStages"] == WORKFLOWS[wf.file]
 
 
 def test_the_devices_it_drives(wf):
