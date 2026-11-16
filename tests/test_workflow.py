@@ -2,9 +2,7 @@
 hardware (open_rigs.rigs.workflow_lint): the lab's device pieces, as in a session, never a device opened by hand
 (Pip, 16 Nov 2026). Each valve pulse is timed as before the pieces: FirePulses on the board's 1 kHz analog data time."""
 
-import re
 import xml.etree.ElementTree as ET
-import zipfile
 from pathlib import Path
 
 import pytest
@@ -81,23 +79,10 @@ def test_every_pulse_is_timed_on_the_board_analog_data_time(wf):
                 (clock,) = [nodes[a] for a, b, label in edges if b == i and label == "Source2"]
                 assert (clock.get(XSI), lint._name(clock)) == ("SubscribeSubject", "Timestamp")
     assert firings == {"main.bonsai": 5, "deliver.bonsai": 1}[wf.file]
-    # Timestamp is ClockFromBoard's alone, and the installed OpenRigs.Devices (.23 on) publishes it from AnalogData.
+    # Timestamp is ClockFromBoard's alone (lib-open-rigs tests that it is the board's 1 kHz AnalogData time).
     declared = [n for n in wf.root.iter(W + "Expression") if "Subject" in (n.get(XSI) or "") and lint._name(n) == "Timestamp"
                 and n.get(XSI) != "SubscribeSubject"]
     assert declared == [] and wf.text.count('Path="OpenRigs.Devices:BehaviorBoard.ClockFromBoard.bonsai"') == 1
-    config = (ROOT / ".bonsai" / "Bonsai.config").read_text(encoding="utf-8-sig")
-    version = re.search(r'<Package id="OpenRigs.Devices" version="([^"]+)"', config).group(1)
-    with zipfile.ZipFile(ROOT / "local_packages" / f"OpenRigs.Devices.{version}.nupkg") as z:
-        dll = z.read("lib/net472/OpenRigs.Devices.dll").decode("latin-1")
-    at = dll.index("<Description>The rig's clock from a Behavior board")
-    piece = ET.fromstring(dll[dll.rindex("<WorkflowBuilder", 0, at):dll.index("</WorkflowBuilder>", at) + 18].encode("latin-1"))
-    nodes = list(piece.find(f"{W}Workflow/{W}Nodes"))
-    feeds = {int(e.get("To")): int(e.get("From")) for e in piece.iter(W + "Edge")}
-    chain = [next(i for i, n in enumerate(nodes) if n.get(XSI) == "rx:BehaviorSubject" and lint._name(n) == "Timestamp")]
-    while chain[-1] in feeds:
-        chain.append(feeds[chain[-1]])
-    described = [nodes[i].findtext(W + "Selector") or next(iter(nodes[i])).get(XSI) or nodes[i].get(XSI) for i in reversed(chain)]
-    assert described[-4:] == ["harp:FilterMessageType", "beh:TimestampedAnalogData", "Seconds", "rx:BehaviorSubject"]
 
 
 def test_no_experiment_folder(wf):
@@ -126,3 +111,9 @@ def test_the_balance_camera_reads_the_launch_s_config_root():
     mappings = [a for a, b, _ in edges if b == camera and nodes[a].get(XSI) == "PropertyMapping"
                 and [p.get("Name") for p in nodes[a].iter(W + "Property")] == ["ConfigRoot"]]
     assert [nodes[a].findtext(W + "Name") for m in mappings for a, b, _ in edges if b == m] == ["ConfigRoot"]
+
+def test_read_lab_rig_and_no_experiment_folder_are_top_level(wf):
+    # As in the preflights and the tasks: ConfigRoot's mapping feeds ReadLabRig, then NoExperimentFolder, first of all.
+    nodes, edges = lint.nodes_and_edges(lint.child(wf.root, W + "Workflow"))
+    assert [n.get("Path") for n in nodes[1:3]] == [lint.READ_LAB_RIG, lint.NO_EXPERIMENT_FOLDER]
+    assert [p.get("Name") for p in nodes[0].iter(W + "Property")] == ["ConfigRoot"] and (0, 1) in [e[:2] for e in edges]

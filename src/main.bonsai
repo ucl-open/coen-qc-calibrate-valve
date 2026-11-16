@@ -22,20 +22,22 @@
     <Nodes>
       <Expression xsi:type="ExternalizedMapping">
         <Property Name="ConfigRoot" DisplayName="ConfigRoot" Description="The root under which each machine has its own configuration directory, &lt;ConfigRoot&gt;\&lt;MACHINE-NAME&gt;\rig.yml; the weights are written into calibration\ there." />
+      </Expression>
+      <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:ReadLabRig.bonsai">
+        <ConfigRoot>C:\Coen-Lab-Local\RigConfigs</ConfigRoot>
+      </Expression>
+      <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Logging:NoExperimentFolder.bonsai">
+        <SubjectId>_valve-calibration_</SubjectId>
+      </Expression>
+      <Expression xsi:type="ExternalizedMapping">
         <Property Name="Channel" DisplayName="Channel" Description="The behavior board line to calibrate, 1 to 3 (DO1 to DO3), when Channels is empty: one rig.yml lists in outputPulseEnable. rig-control gives it at launch." />
         <Property Name="Channels" DisplayName="Channels" Description="The lines to calibrate together, interleaved, such as 1, 2: each burst fired on each in turn, each weighed before the next, so a run has a burst per line per sample. Empty: only Channel. rig-control gives it at launch for Calibrate All." />
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Settings</Name>
-        <Description>RigConfigDirectory is &lt;ConfigRoot&gt;\&lt;MACHINE-NAME&gt;, where the calibration writes its weights; RigConfigs is rig.yml there in the lab rig model (OpenRigs.Devices ReadLabRig, as every lab workflow reads it). RewardValveLines is the lines BehaviorBoard-Main's wiring gives a RewardValve (OpenRigs.Devices WiredOutputs); it stops the workflow if rig.yml has no such board or no RewardValve on DO1 to DO3. NoExperimentFolder (OpenRigs.Logging) declares PathPrefix, never published, as a calibration has no experiment folder, so the pieces' logs (BehaviorBoard-Main, the stage's drivers), which wait for it, never start; and SubjectId, _valve-calibration_, no mouse's, so the spouts go to rig.yml's lickSpoutDefaultPosition. ValveCalibrationSettings is config\valve-calibration.yml expanded over the valves (InterleaveValves, src\Extensions): each sample once per valve in Channels (else the one Channel), in turn, and the priming pulses once per valve, so ManualBalance, RunCalibration and the weights file all follow the bursts as they fire; it stops the workflow if a valve is not a RewardValve in rig.yml or the samples are at different pulseGapMs. Fails at startup if the machine has no configuration directory.</Description>
+        <Description>RewardValveLines is the lines BehaviorBoard-Main's wiring gives a RewardValve in RigConfigs (OpenRigs.Devices WiredOutputs); it stops the workflow if rig.yml has no such board or no RewardValve on DO1 to DO3. ValveCalibrationSettings is config\valve-calibration.yml expanded over the valves (InterleaveValves, src\Extensions): each sample once per valve in Channels (else the one Channel), in turn, and the priming pulses once per valve, so ManualBalance, RunCalibration and the weights file all follow the bursts as they fire; it stops the workflow if a valve is not a RewardValve in rig.yml or the samples are at different pulseGapMs.</Description>
         <Workflow>
           <Nodes>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="ConfigRoot" DisplayName="ConfigRoot" />
-            </Expression>
-            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:ReadLabRig.bonsai">
-              <ConfigRoot>C:\Coen-Lab-Local\RigConfigs</ConfigRoot>
-            </Expression>
             <Expression xsi:type="SubscribeSubject">
               <Name>RigConfigs</Name>
             </Expression>
@@ -80,21 +82,17 @@
             <Expression xsi:type="rx:BehaviorSubject" TypeArguments="sys:Boolean">
               <rx:Name>SpoutsReady</rx:Name>
             </Expression>
-            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Logging:NoExperimentFolder.bonsai">
-              <SubjectId>_valve-calibration_</SubjectId>
-            </Expression>
           </Nodes>
           <Edges>
             <Edge From="0" To="1" Label="Source1" />
-            <Edge From="2" To="3" Label="Source1" />
+            <Edge From="1" To="2" Label="Source1" />
             <Edge From="3" To="4" Label="Source1" />
+            <Edge From="4" To="5" Label="Source1" />
             <Edge From="5" To="6" Label="Source1" />
-            <Edge From="6" To="7" Label="Source1" />
-            <Edge From="7" To="8" Label="Source1" />
-            <Edge From="4" To="8" Label="Source2" />
-            <Edge From="8" To="10" Label="Source1" />
-            <Edge From="9" To="10" Label="Source2" />
-            <Edge From="10" To="11" Label="Source1" />
+            <Edge From="2" To="6" Label="Source2" />
+            <Edge From="6" To="8" Label="Source1" />
+            <Edge From="7" To="8" Label="Source2" />
+            <Edge From="8" To="9" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
@@ -542,7 +540,7 @@
             </Expression>
             <Expression xsi:type="rx:SelectMany">
               <Name>RunCalibration</Name>
-              <Description>OpenRigs.Core DispenseCalibration's bursts (lib-open-rigs src\OpenRigs.Core\DispenseCalibration.bonsai, copied 7 Nov 2026), without its fit and file writing: primes each valve and weighs a baseline, then each sample's burst on its valve (ValveTrains, src\Extensions, into OpenRigs.Core FirePulses on the Harp clock) and its weighing, in turn. The settings sit in a scoped subject so every step reads the same values. Output: each burst once weighed, as ((grams after, grams before), its sample).</Description>
+              <Description>The bursts of OpenRigs.Core's DispenseCalibration settings, this repository's own steps (upstream's DispenseCalibration workflow, copied 7 Nov 2026, is no longer followed), with no fit and no file writing: primes each valve and weighs a baseline, then each sample's burst on its valve (ValveTrains, src\Extensions, into OpenRigs.Core FirePulses on the Harp clock) and its weighing, in turn. The settings sit in a scoped subject so every step reads the same values. Output: each burst once weighed, as ((grams after, grams before), its sample).</Description>
               <Workflow>
                 <Nodes>
                   <Expression xsi:type="WorkflowInput">
@@ -1130,8 +1128,9 @@
     </Nodes>
     <Edges>
       <Edge From="0" To="1" Label="Source1" />
-      <Edge From="2" To="3" Label="Source1" />
+      <Edge From="3" To="4" Label="Source1" />
       <Edge From="5" To="6" Label="Source1" />
+      <Edge From="8" To="9" Label="Source1" />
     </Edges>
   </Workflow>
 </WorkflowBuilder>

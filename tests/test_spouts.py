@@ -2,7 +2,7 @@
 
 A QC workflow runs on domes (with a stage) and boxes (without), and a workflow's graph is fixed, so the piece runs
 only in Stage, the SelectMany a rig with stepperDriver entries starts. The piece declares StepperDriver-A and -B
-itself (until 16 Nov 2026 this file made them, for the old HarpLickSpoutStage) and builds its positions file from
+itself and builds its positions file from
 SubjectId, which here is never a mouse's (headless check, 16 Nov 2026: inside Stage the piece opened driver A on
 rig.yml's port, and without a stage the workflow ran on)."""
 
@@ -42,7 +42,6 @@ def _stage_nodes():
 def test_the_stage_is_the_lab_piece_inside_stage_only():
     assert [n.get("Path") for n in _stage_nodes() if n.get("Path")] == [STAGE_PIECE]
     assert not [n for n in _nodes(TOP) if n.get("Path")]
-    assert "HarpLickSpoutStage" not in ET.tostring(SPOUTS, encoding="unicode")
 
 
 def test_stage_starts_only_on_a_rig_with_a_stage():

@@ -6,7 +6,7 @@ using System.Linq;
 using System.Reactive.Linq;
 
 // The spouts during a calibration (Pip, 10 Nov 2026: the drops land as in a session), on
-// OpenRigs.Devices HarpLickSpoutStage, which homes the stage and moves the spouts in. Compiled by
+// OpenRigs.Devices LickSpoutStage, which homes the stage and moves the spouts in. Compiled by
 // Bonsai under C# 5.
 namespace CoenQcCalibrateValve
 {
