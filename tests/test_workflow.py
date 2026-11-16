@@ -29,8 +29,12 @@ def test_the_hardware_is_the_lab_pieces(wf):
 
 
 def test_the_devices_it_drives(wf):
-    # The lick spout stage is in Extensions\Spouts.bonsai, behind the rig's stepperDriver entries.
-    assert lint.required_devices(wf) == [("BehaviorBoard-Main", "behaviorBoard")]
+    # The lick spout stage is in Extensions\Spouts.bonsai, driving the rig's two stepper drivers.
+    assert lint.required_devices(wf) == [
+        ("BehaviorBoard-Main", "behaviorBoard"),
+        ("StepperDriver-A", "stepperDriver"),
+        ("StepperDriver-B", "stepperDriver"),
+    ]
 
 
 def test_every_announcer_never_completes(wf):
