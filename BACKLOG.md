@@ -1,5 +1,9 @@
 # Backlog
 
+## 2026-11-16 Pieces declare their own commands and parameters (lib-open-rigs def14f6; Control .13, Devices .27)
+
+- `main.bonsai` and `deliver.bonsai` no longer declare `SpoutStepSize`: `LickSpoutStage` (in `Spouts.bonsai`) declares it with its spout commands, only on a rig whose rig.yml has a stage, so a box's status lists none. Tests: `declared_twice`, and `SpoutStepSize` nowhere in the workflows.
+
 ## 2026-11-16 ReadyGate's WorkflowStages (OpenRigs.Core .22, Devices .26)
 
 Done (Pip, 16 Nov 2026): `src\main.bonsai` and `src\deliver.bonsai` name their own stage (`CalibrationReady`, `DeliveryReady`) in ReadyGate's new `WorkflowStages`, and `ReadyWaitsFor` is the pieces' `HarpClockSet` alone. Ready waits for the same stages as before. `tests\test_workflow.py` expects no `hardware_problems`: lint holds `WorkflowStages` equal to the workflow's own `AnnounceStage` nodes, so the exception for the workflow's own stage is gone.

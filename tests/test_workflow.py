@@ -44,14 +44,14 @@ def test_no_shared_mapping(wf):
     assert lint.shared_mapping_problems(wf.root) == []
 
 
-def test_every_command_is_declared(wf):
-    assert lint.undeclared_commands(wf) == []
+def test_every_command_is_declared_once(wf):
+    assert lint.undeclared_commands(wf) == [] and lint.declared_twice(wf) == []
 
 
-def test_spout_step_size_is_declared(wf):
-    # LickSpoutStage (in Spouts.bonsai) shows SpoutStepSize's default at Start; undeclared, that stops the workflow.
-    assert re.search(r"<Parameter>\s*<Name>SpoutStepSize</Name>", wf.text)
-    assert lint.spout_step_size_problems(wf) == []
+def test_spout_step_size_is_the_lick_spout_stage_s(wf):
+    # LickSpoutStage (in Spouts.bonsai, on a rig with a stage) declares SpoutStepSize itself (16 Nov 2026): a copy here
+    # would stop ControlServer at Start, and on a rig without a stage nothing declares it.
+    assert "SpoutStepSize" not in wf.text and lint.spout_step_size_problems(wf) == []
 
 
 @pytest.mark.parametrize("path", RIGS, ids=lambda path: path.name)

@@ -130,13 +130,6 @@
                   <Minimum>5</Minimum>
                   <Maximum>100</Maximum>
                 </Parameter>
-                <Parameter>
-                  <Name>SpoutStepSize</Name>
-                  <Value />
-                  <Description>Motor steps each spout nudge moves, taken live by the lick spout stage (OpenRigs.Devices LickSpoutStage, on a rig with one). A calibration sends no nudge; the stage shows its default here at Start.</Description>
-                  <Minimum>1</Minimum>
-                  <WholeNumber>true</WholeNumber>
-                </Parameter>
               </Parameters>
               <Commands>
                 <Command>

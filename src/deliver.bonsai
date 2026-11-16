@@ -69,15 +69,7 @@
               <SubjectId />
               <SessionId />
               <ControlEndpoint>@tcp://127.0.0.1:5561</ControlEndpoint>
-              <Parameters>
-                <Parameter>
-                  <Name>SpoutStepSize</Name>
-                  <Value />
-                  <Description>Motor steps each spout nudge moves, taken live by the lick spout stage (OpenRigs.Devices LickSpoutStage, on a rig with one). A delivery sends no nudge; the stage shows its default here at Start.</Description>
-                  <Minimum>1</Minimum>
-                  <WholeNumber>true</WholeNumber>
-                </Parameter>
-              </Parameters>
+              <Parameters />
             </Expression>
             <Expression xsi:type="SubscribeSubject">
               <Name>ExperimentGo</Name>
