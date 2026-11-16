@@ -21,3 +21,8 @@ History is in `git log`.
 - ManualPulses allowed on a RewardValve line (lib's lint, `workflow_lint.py:587-611`): flushing a valve is its job, and a calibrated pulse writes its own width.
 - No shared hardware include for the valve: one `main.bonsai` and `deliver.bonsai` for every rig, setting no clock, was chosen 16 Nov 2026 (see Decided).
 - Calibrate and deliver not merged: they differ in inputs, the camera and the fit guard.
+
+## Audit round 3 (16 Nov 2026): not recommended
+
+- Calibrate and deliver not merged: they are two jobs.
+- One `FirePulses` for every train not built: it restructures a hardware-tested workflow, and the `TakeUntil` fix covers the bug.
