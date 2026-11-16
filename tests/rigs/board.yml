@@ -12,7 +12,7 @@ behaviorBoard:
         DO2: { discriminatorType: CalibratedPulse, artefact: calibration/valve-DO2.json }
         DO3: { discriminatorType: FixedPulse, pulseWidthMs: 0 }
     wiring:
-      DO1: { device: RewardValve, side: left }
-      DO2: { device: RewardValve, side: right }
+      DO1: { device: RewardValve, name: left }
+      DO2: { device: RewardValve, name: right }
       DO3: { device: Photodiode }
 rootPath: C:\Coen-Lab-Local\Acquired-Data

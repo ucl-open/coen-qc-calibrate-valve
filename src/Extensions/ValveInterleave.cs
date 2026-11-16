@@ -23,10 +23,10 @@ namespace CoenQcCalibrateValve
     /// <summary>A sample of the expanded procedure: the procedure's own, on one valve.</summary>
     public class ValveSample : DispenseSample
     {
-        int channel;
+        string channel;
 
-        /// <summary>The behavior board line this burst fires on, 1 to 3 (DO1 to DO3).</summary>
-        public int Channel
+        /// <summary>The behavior board line this burst fires on, such as DO1.</summary>
+        public string Channel
         {
             get { return channel; }
             set { channel = value; }
@@ -36,65 +36,94 @@ namespace CoenQcCalibrateValve
     /// <summary>One train of pulses, mapped onto OpenRigs.Core FirePulses' properties (InputMapping).</summary>
     public class PulseTrain
     {
-        public int Line { get; set; }
+        public string Line { get; set; }
         public int PulseWidthMs { get; set; }
         public int Pulses { get; set; }
         public int PulseGapMs { get; set; }
 
-        public static PulseTrain Of(DispenseSample sample, int line, int count)
+        public static PulseTrain Of(DispenseSample sample, string line, int count)
         {
             var valve = sample as ValveSample;
-            return new PulseTrain { Line = valve != null ? valve.Channel : line, PulseWidthMs = sample.PulseWidthMs, Pulses = count, PulseGapMs = sample.PulseGapMs };
+            return new PulseTrain { Line = valve != null ? valve.Channel : Valves.Line(line), PulseWidthMs = sample.PulseWidthMs, Pulses = count, PulseGapMs = sample.PulseGapMs };
         }
     }
 
     /// <summary>The valves of a run, from the Channels launch property or, when that is empty, Channel.</summary>
     public static class Valves
     {
-        public static int[] Parse(string channels, int channel)
+        // The lines a behavior board can pulse (OpenRigs.Devices PulseOutputs), as it names them.
+        static readonly string[] PulseLines = { "DO0", "DO1", "DO2", "DO3", "DOPort0", "DOPort1", "DOPort2" };
+
+        /// <summary>A line as the board names it (DO1), from its name in any case or its DO number (1), as rig-control launches it.</summary>
+        public static string Line(string text)
+        {
+            var name = (text ?? "").Trim();
+            int number;
+            if (int.TryParse(name, NumberStyles.None, CultureInfo.InvariantCulture, out number)) name = "DO" + number.ToString(CultureInfo.InvariantCulture);
+            var line = PulseLines.FirstOrDefault(l => string.Equals(l, name, StringComparison.OrdinalIgnoreCase));
+            if (line == null)
+            {
+                throw new InvalidOperationException(string.Format(
+                    "'{0}' is not a line the behavior board can pulse: DO0 to DO3 or DOPort0 to DOPort2 (a number is a DO line).", text));
+            }
+            return line;
+        }
+
+        /// <summary>A DO line's number (DO2 is 2), the weights file's channel column, which rig-control reads as a number.</summary>
+        public static int Number(string line)
+        {
+            int number;
+            if (line == null || !line.StartsWith("DO", StringComparison.Ordinal)
+                || !int.TryParse(line.Substring(2), NumberStyles.None, CultureInfo.InvariantCulture, out number))
+            {
+                throw new InvalidOperationException(string.Format(
+                    "{0} cannot be calibrated here: the weights file numbers its valves DO0 to DO3 (its channel column), as rig-control reads it.", line));
+            }
+            return number;
+        }
+
+        public static string[] Parse(string channels, string channel)
         {
             var text = (channels ?? "").Trim();
-            if (text.Length == 0) return new[] { channel };
-            var parsed = new List<int>();
+            if (text.Length == 0) return new[] { Line(channel) };
+            var parsed = new List<string>();
             foreach (var part in text.Split(new[] { ',', ' ', ';' }, StringSplitOptions.RemoveEmptyEntries))
             {
-                var name = part.Trim();
-                if (name.StartsWith("DO", StringComparison.OrdinalIgnoreCase)) name = name.Substring(2);
-                int value;
-                if (!int.TryParse(name, NumberStyles.Integer, CultureInfo.InvariantCulture, out value) || value < 1 || value > 3)
+                string line;
+                try { line = Line(part); }
+                catch (InvalidOperationException error)
                 {
-                    throw new InvalidOperationException(string.Format(
-                        "Channels '{0}' names '{1}', which is not a behavior board line (1 to 3, or DO1 to DO3).", channels, part));
+                    throw new InvalidOperationException(string.Format("Channels '{0}': {1}", channels, error.Message));
                 }
-                if (parsed.Contains(value))
+                if (parsed.Contains(line))
                 {
-                    throw new InvalidOperationException(string.Format("Channels '{0}' names line {1} twice.", channels, value));
+                    throw new InvalidOperationException(string.Format("Channels '{0}' names {1} twice.", channels, line));
                 }
-                parsed.Add(value);
+                parsed.Add(line);
             }
-            if (parsed.Count == 0) return new[] { channel };
+            if (parsed.Count == 0) return new[] { Line(channel) };
             return parsed.ToArray();
         }
 
         /// <summary>Refuses any line that is not one of rig.yml's RewardValves (OpenRigs.Devices WiredOutputs' lines).</summary>
-        public static void Check(DigitalOutputs rewardValves, int[] lines)
+        public static void Check(DigitalOutputs rewardValves, string[] lines)
         {
             foreach (var line in lines)
             {
-                var output = (DigitalOutputs)Enum.Parse(typeof(DigitalOutputs), "DO" + line);
+                var output = (DigitalOutputs)Enum.Parse(typeof(DigitalOutputs), Line(line));
                 if ((rewardValves & output) == 0)
                 {
                     throw new InvalidOperationException(string.Format(
-                        "DO{0} is not a reward valve: rig.yml's behaviorBoard: main: wiring gives RewardValve only to {1}.",
+                        "{0} is not a reward valve: rig.yml's behaviorBoard: main: wiring gives RewardValve only to {1}.",
                         line, rewardValves));
                 }
             }
         }
 
         /// <summary>The valves of an expanded procedure, in the order they fire.</summary>
-        public static int[] Of(DispenseProcedure procedure)
+        public static string[] Of(DispenseProcedure procedure)
         {
-            var found = new List<int>();
+            var found = new List<string>();
             foreach (var sample in procedure.Samples)
             {
                 var valve = sample as ValveSample;
@@ -119,21 +148,21 @@ namespace CoenQcCalibrateValve
     }
 
     [Combinator]
-    [Description("Expands the valve calibration's procedure over the valves to calibrate: each round (each width's first sample, then each width's second, ...) in a new random order every run, each sample once per valve, in turn (DO1's burst, weighed, then DO2's, weighed, and so on), and the priming pulses once per valve. Channels lists the valves (such as 1, 2, or DO1, DO2); empty, the one Channel. Input: (the settings, rig.yml's RewardValve lines); stops the workflow if a valve is not a RewardValve in rig.yml's wiring or the samples are at different pulseGapMs.")]
+    [Description("Expands the valve calibration's procedure over the valves to calibrate: each round (each width's first sample, then each width's second, ...) in a new random order every run, each sample once per valve, in turn (DO1's burst, weighed, then DO2's, weighed, and so on), and the priming pulses once per valve. Channels lists the valves (such as DO1, DO2, or 1, 2); empty, the one Channel. Input: (the settings, rig.yml's RewardValve lines); stops the workflow if a valve is not a RewardValve in rig.yml's wiring, is not a DO line (the weights file numbers its valves) or the samples are at different pulseGapMs.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
     public class InterleaveValves
     {
-        int channel = 1;
+        string channel = "DO1";
         string channels = "";
 
-        [Description("The one valve to calibrate, 1 to 3, when Channels is empty.")]
-        public int Channel
+        [Description("The one valve to calibrate, such as DO1 (or 1), when Channels is empty.")]
+        public string Channel
         {
             get { return channel; }
             set { channel = value; }
         }
 
-        [Description("The valves to calibrate together, interleaved, such as 1, 2. Empty: only Channel.")]
+        [Description("The valves to calibrate together, interleaved, such as DO1, DO2 (or 1, 2). Empty: only Channel.")]
         public string Channels
         {
             get { return channels; }
@@ -146,6 +175,7 @@ namespace CoenQcCalibrateValve
             {
                 var valves = Valves.Parse(Channels, Channel);
                 Valves.Check(input.Item2, valves);
+                foreach (var valve in valves) Valves.Number(valve);
                 return Expand(input.Item1, valves, new Random());
             });
         }
@@ -154,7 +184,7 @@ namespace CoenQcCalibrateValve
         /// With `random`, each round is shuffled first (Pip, 11 Nov 2026: "Shuffle every round"): round k holds
         /// each width's k-th sample, the rounds stay in turn, and a new order is drawn every run. Without it,
         /// the samples as written.</summary>
-        public static DispenseCalibration Expand(DispenseCalibration settings, int[] valves, Random random)
+        public static DispenseCalibration Expand(DispenseCalibration settings, string[] valves, Random random)
         {
             var procedure = settings.Procedure;
             if (procedure == null || procedure.Samples == null || procedure.Samples.Count == 0)
@@ -214,10 +244,10 @@ namespace CoenQcCalibrateValve
     [WorkflowElementCategory(ElementCategory.Transform)]
     public class ValveTrains
     {
-        int channel = 1;
+        string channel = "DO1";
 
-        [Description("The line a sample that names no valve fires on, 1 to 3.")]
-        public int Channel
+        [Description("The line a sample that names no valve fires on, such as DO1.")]
+        public string Channel
         {
             get { return channel; }
             set { channel = value; }
@@ -233,14 +263,14 @@ namespace CoenQcCalibrateValve
             return source.SelectMany(procedure => Priming(procedure, Channel));
         }
 
-        public static PulseTrain[] Priming(DispenseProcedure procedure, int channel)
+        public static PulseTrain[] Priming(DispenseProcedure procedure, string channel)
         {
             if (procedure.Samples == null || procedure.Samples.Count == 0)
             {
                 throw new InvalidOperationException("The dispense procedure has no samples to take the priming pulse width from.");
             }
             var valves = Valves.Of(procedure);
-            if (valves.Length == 0) valves = new[] { channel };
+            if (valves.Length == 0) valves = new[] { Valves.Line(channel) };
             int width = procedure.PrimingPulseWidthMs ?? procedure.Samples.Max(sample => sample.PulseWidthMs);
             int gap = Valves.Gap(procedure);
             int each = procedure.PrimingPulses / valves.Length;
@@ -257,10 +287,10 @@ namespace CoenQcCalibrateValve
     [WorkflowElementCategory(ElementCategory.Combinator)]
     public class DripTrains
     {
-        int channel = 1;
+        string channel = "DO1";
 
-        [Description("The line a sample that names no valve drips on, 1 to 3.")]
-        public int Channel
+        [Description("The line a sample that names no valve drips on, such as DO1.")]
+        public string Channel
         {
             get { return channel; }
             set { channel = value; }
@@ -282,14 +312,14 @@ namespace CoenQcCalibrateValve
             {
                 var drip = Parse(text);
                 var valves = Valves.Of(p);
-                int line = drip.Item2 > 0 ? drip.Item2 : valves.Length > 0 ? valves[0] : Channel;
+                var line = drip.Item2 ?? (valves.Length > 0 ? valves[0] : Valves.Line(Channel));
                 Valves.Check(wired, new[] { line });
                 return new PulseTrain { Line = line, PulseWidthMs = p.Samples.Max(x => x.PulseWidthMs), Pulses = drip.Item1, PulseGapMs = Valves.Gap(p) };
             })));
         }
 
-        /// <summary>A Drip command's (pulses, line), the line 0 when not named.</summary>
-        public static Tuple<int, int> Parse(string text)
+        /// <summary>A Drip command's (pulses, line), the line null when not named.</summary>
+        public static Tuple<int, string> Parse(string text)
         {
             var parts = (text ?? "").Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
             int pulses;
@@ -299,7 +329,7 @@ namespace CoenQcCalibrateValve
                 throw new InvalidOperationException(string.Format(
                     "Drip '{0}' is not a drip: give its pulses, 1 to 100, and for the baseline the line, such as 1 DO2.", text));
             }
-            return Tuple.Create(pulses, parts.Length == 2 ? Valves.Parse(parts[1], 1)[0] : 0);
+            return Tuple.Create(pulses, parts.Length == 2 ? Valves.Line(parts[1]) : null);
         }
     }
 
@@ -342,7 +372,7 @@ namespace CoenQcCalibrateValve
     }
 
     // Testing a width before Start (Pip, 12 Nov 2026: "test the min opening time in the calibration
-    // window before starting (and then can edit)"): pulses on TriggerCalibratedPulse alone, never on
+    // window before starting (and then can edit)"): pulses on BehaviorBoard-Main.TriggerCalibratedPulse alone, never on
     // BurstPulses, so ManualBalance does not count them.
     [Combinator]
     [Description("Each Test command as a burst: its text is the width in ms, the pulses and the line, such as '20 10 DO1', at the procedure's pulseGapMs. Input: ((the command's text, the settings), rig.yml's RewardValve lines); stops the workflow if the line is not a RewardValve.")]
@@ -360,7 +390,7 @@ namespace CoenQcCalibrateValve
         }
 
         /// <summary>A Test command's (width ms, pulses, line).</summary>
-        public static Tuple<int, int, int> Parse(string text)
+        public static Tuple<int, int, string> Parse(string text)
         {
             var parts = (text ?? "").Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
             int width, pulses;
@@ -371,7 +401,7 @@ namespace CoenQcCalibrateValve
                 throw new InvalidOperationException(string.Format(
                     "Test '{0}' is not a test: give the width in ms (1 to {1}), the pulses (1 to 100) and the line, such as 20 10 DO1.", text, 5 * ScaleWidths.Highest));
             }
-            return Tuple.Create(width, pulses, Valves.Parse(parts[2], 1)[0]);
+            return Tuple.Create(width, pulses, Valves.Line(parts[2]));
         }
     }
 
@@ -382,7 +412,7 @@ namespace CoenQcCalibrateValve
     {
         public IObservable<string> Process(IObservable<DispenseCalibration> source)
         {
-            return source.Select(settings => string.Join(", ", Valves.Of(settings.Procedure).Select(v => "DO" + v).ToArray()));
+            return source.Select(settings => string.Join(", ", Valves.Of(settings.Procedure)));
         }
     }
 
@@ -398,14 +428,14 @@ namespace CoenQcCalibrateValve
     }
 
     [Combinator]
-    [Description("Each weighed burst as a row of the weights file: its pulse width in ms, its pulses (its drips included), the grams before and after it, the valve it fired on (1 to 3) and its pulseGapMs. Input: (((grams after, grams before), its sample), its drip pulses), RunCalibration's output with SampleDrips.")]
+    [Description("Each weighed burst as a row of the weights file: its pulse width in ms, its pulses (its drips included), the grams before and after it, the valve it fired on (its DO number, 1 for DO1) and its pulseGapMs. Input: (((grams after, grams before), its sample), its drip pulses), RunCalibration's output with SampleDrips.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
     public class ValveWeighingRow
     {
-        int channel = 1;
+        string channel = "DO1";
 
-        [Description("The valve of a sample that names none, 1 to 3.")]
-        public int Channel
+        [Description("The valve of a sample that names none, such as DO1.")]
+        public string Channel
         {
             get { return channel; }
             set { channel = value; }
@@ -423,7 +453,7 @@ namespace CoenQcCalibrateValve
                     pulses = weighed.Item2.Pulses + input.Item2,
                     beforeG = weighed.Item1.Item2,
                     afterG = weighed.Item1.Item1,
-                    channel = valve != null ? valve.Channel : Channel,
+                    channel = Valves.Number(valve != null ? valve.Channel : Valves.Line(Channel)),
                     pulseGapMs = weighed.Item2.PulseGapMs
                 };
             });

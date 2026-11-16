@@ -95,7 +95,7 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Hardware</Name>
-        <Description>The rig's pieces, as in a session (lib-open-rigs building-blocks): the Ready gate (ReadyGate), the behavior board BehaviorBoard-Main on rig.yml's port (BehaviorBoard, which clears any ZapitTrigger line however the workflow stops), its time, read and never set (ClockFromBoard, SetClock false: Timestamp, the board's time from its analog data events, 1 kHz, as it runs, following the timestamp generator on a dome and its own elsewhere, which the pulses are timed on relative to each other, as before the device pieces) and its pulsed lines (PulseOutputs: rig.yml's outputPulseEnable without the ZapitTrigger line, stopping at Start if a RewardValve line is not among them; TriggerCalibratedPulse fires one pulse of a given width on a line). Ready (ReadyGate) once the board's time is read (PieceStages, HarpClockRead, at its first heartbeat), PulseOutputs' setup has gone out (PulsesEnabled: pulse mode and widths on its lines, so a Go cannot fire a pulse on a line not yet in pulse mode) and DeliveryReady, this workflow's own stage (WorkflowStages), has come: the spouts are in (SpoutsReady).</Description>
+        <Description>The rig's pieces, as in a session (lib-open-rigs building-blocks): the Ready gate (ReadyGate), the behavior board BehaviorBoard-Main on rig.yml's port (BehaviorBoard, which clears any ZapitTrigger line however the workflow stops), its time, read and never set (ClockFromBoard, SetClock false: Timestamp, the board's time from its analog data events, 1 kHz, as it runs, following the timestamp generator on a dome and its own elsewhere, which the pulses are timed on relative to each other, as before the device pieces) and its pulsed lines (PulseOutputs: rig.yml's outputPulseEnable without the ZapitTrigger line, stopping at Start if a RewardValve line is not among them; BehaviorBoard-Main.TriggerCalibratedPulse fires one pulse of a given width on a line). Ready (ReadyGate) once the board's time is read (PieceStages, HarpClockRead, at its first heartbeat), PulseOutputs' setup has gone out (PulsesEnabled: pulse mode and widths on its lines, so a Go cannot fire a pulse on a line not yet in pulse mode) and DeliveryReady, this workflow's own stage (WorkflowStages), has come: the spouts are in (SpoutsReady).</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:ReadyGate.bonsai">
@@ -117,6 +117,7 @@
               <Board>BehaviorBoard-Main</Board>
               <BoardCommandsSubjectName>BehaviorBoard-Main.Commands</BoardCommandsSubjectName>
               <BoardDataSubjectName>BehaviorBoard-Main.Data</BoardDataSubjectName>
+              <BoardTriggerCalibratedPulseSubjectName>BehaviorBoard-Main.TriggerCalibratedPulse</BoardTriggerCalibratedPulseSubjectName>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
               <Name>SpoutsReady</Name>
@@ -143,14 +144,14 @@
         </Workflow>
       </Expression>
       <Expression xsi:type="ExternalizedMapping">
-        <Property Name="Channel" DisplayName="Channel" Description="The valve's behavior board line, 1 to 3 (DO1 to DO3): a RewardValve in rig.yml's wiring. rig-control gives it at launch." />
+        <Property Name="Channel" DisplayName="Channel" Description="The valve's behavior board line, such as DO1 (or 1): a RewardValve in rig.yml's wiring. rig-control gives it at launch." />
         <Property Name="PulseWidthMs" DisplayName="PulseWidthMs" Description="Each pulse's width in ms: the reward size's, read off the valve's curve by rig-control." />
         <Property Name="Pulses" DisplayName="Pulses" Description="How many pulses: 1 ml at the reward size, by rig-control." />
         <Property Name="PulseGapMs" DisplayName="PulseGapMs" Description="The off-to-on time between pulses, in ms: the valve calibration file's pulseGapMs, which rig-control gives at launch." />
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Deliver</Name>
-        <Description>At Go, Pulses pulses of PulseWidthMs on Channel at PulseGapMs through TriggerCalibratedPulse (DeliverTrain, src\Extensions, into OpenRigs.Core FirePulses on the Harp clock), each reported as the delivered metric (how many so far); once the last has closed, Finished, and Delivered ends, which takes the spouts out. Stops the workflow if Channel is not a RewardValve in rig.yml.</Description>
+        <Description>At Go, Pulses pulses of PulseWidthMs on Channel at PulseGapMs through BehaviorBoard-Main.TriggerCalibratedPulse (DeliverTrain, src\Extensions, into OpenRigs.Core FirePulses on the Harp clock), each reported as the delivered metric (how many so far); once the last has closed, Finished, and Delivered ends, which takes the spouts out. Stops the workflow if Channel is not a RewardValve in rig.yml.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
@@ -175,7 +176,7 @@
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="vc:DeliverTrain">
-                <vc:Channel>1</vc:Channel>
+                <vc:Channel>DO1</vc:Channel>
                 <vc:PulseWidthMs>1</vc:PulseWidthMs>
                 <vc:Pulses>0</vc:Pulses>
                 <vc:PulseGapMs>0</vc:PulseGapMs>
@@ -194,14 +195,14 @@
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="orc:FirePulses">
-                <orc:Line>1</orc:Line>
+                <orc:Line>DO1</orc:Line>
                 <orc:PulseWidthMs>1</orc:PulseWidthMs>
                 <orc:Pulses>0</orc:Pulses>
                 <orc:PulseGapMs>0</orc:PulseGapMs>
               </Combinator>
             </Expression>
             <Expression xsi:type="MulticastSubject">
-              <Name>TriggerCalibratedPulse</Name>
+              <Name>BehaviorBoard-Main.TriggerCalibratedPulse</Name>
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="rx:ElementIndex" />

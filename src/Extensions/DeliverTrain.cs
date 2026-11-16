@@ -16,13 +16,13 @@ namespace CoenQcCalibrateValve
     [WorkflowElementCategory(ElementCategory.Transform)]
     public class DeliverTrain
     {
-        int channel = 1;
+        string channel = "DO1";
         int pulseWidthMs = 1;
         int pulses;
         int pulseGapMs;
 
-        [Description("The valve's behavior board line, 1 to 3 (DO1 to DO3).")]
-        public int Channel
+        [Description("The valve's behavior board line, such as DO1 (or its DO number, 1, as rig-control launches it).")]
+        public string Channel
         {
             get { return channel; }
             set { channel = value; }
@@ -65,8 +65,9 @@ namespace CoenQcCalibrateValve
                 {
                     throw new InvalidOperationException(string.Format("PulseGapMs {0} is not a gap: give the valve calibration file's pulseGapMs, 1 to 10000 ms.", PulseGapMs));
                 }
-                Valves.Check(input.Item2, new[] { Channel });
-                return new PulseTrain { Line = Channel, PulseWidthMs = PulseWidthMs, Pulses = Pulses, PulseGapMs = PulseGapMs };
+                var line = Valves.Line(Channel);
+                Valves.Check(input.Item2, new[] { line });
+                return new PulseTrain { Line = line, PulseWidthMs = PulseWidthMs, Pulses = Pulses, PulseGapMs = PulseGapMs };
             });
         }
     }

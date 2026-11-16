@@ -92,7 +92,7 @@ def test_the_pulsed_lines_are_the_valves(path):
     board = data["behaviorBoard"]["main"]
     zapit = {line for line, wired in board["wiring"].items() if wired["device"] == "ZapitTrigger"}
     enabled = set(board["pulseController"]["outputPulseEnable"].replace(",", " ").split()) - zapit
-    assert enabled == {f"DO{line}" for line in rig.reward_valve_lines()}
+    assert enabled == set(rig.reward_valve_lines())
 
 
 def test_every_pulse_is_timed_on_the_rig_s_clock(wf):
@@ -117,16 +117,14 @@ def test_launch_id(wf):
 
 
 def test_no_device_opened_by_hand(wf):
-    # The balance camera is in no rig.yml, so the calibration opens it itself (OpenRigs.Video UsbCamera); the delivery
-    # opens nothing.
-    allowed = ("UsbCamera",) if wf.file == "main.bonsai" else ()
-    assert lint.hand_opened_devices(wf, allowed) == []
+    # The balance camera, in no rig.yml, opens through lib's piece (OpenRigs.Devices UsbCamera); the delivery opens nothing.
+    assert lint.hand_opened_devices(wf) == []
 
 
 def test_no_experiment_folder(wf):
     # NoExperimentFolder's PathPrefix is never published, so no piece's log starts; its SubjectId is the include's default
     # (_no-experiment_), no mouse's, so the spouts go to rig.yml's lickSpoutDefaultPosition (Spouts.bonsai declared it until 16 Nov 2026).
-    assert [p for p in lint.no_experiment_folder_problems(wf) if "has no SubjectId" not in p] == []  # the pinned lib wants one set; the next lib defaults it (drop the filter at that bump)
+    assert lint.no_experiment_folder_problems(wf) == []
     (node,) = [n for n in wf.root.iter(W + "Expression") if n.get("Path") == lint.NO_EXPERIMENT_FOLDER]
     assert node.find(W + "SubjectId") is None
 
@@ -136,17 +134,6 @@ def test_live_view_is_last_and_fed_by_nothing(wf):
     assert lint.live_view_problems(wf) == []
 
 
-def test_the_balance_camera_reads_the_launch_s_config_root():
-    # Its ConfigRoot (where it reads the rig's own cameras, never to take one) is ReadLabRig's, so --property:ConfigRoot
-    # moves it with rig.yml; it was typed in.
-    wf = lint.Workflow(ROOT, "main.bonsai")
-    group = next(e for e in wf.root.iter(W + "Expression") if e.findtext(W + "Name") == "Hardware")
-    nodes, edges = lint.nodes_and_edges(group.find(W + "Workflow"))
-    (camera,) = [i for i, n in enumerate(nodes) if n.find(W + "Combinator") is not None and n.find(W + "Combinator").get(XSI) == "vid:UsbCamera"]
-    mappings = [a for a, b, _ in edges if b == camera and nodes[a].get(XSI) == "PropertyMapping"
-                and [p.get("Name") for p in nodes[a].iter(W + "Property")] == ["ConfigRoot"]]
-    assert [nodes[a].findtext(W + "Name") for m in mappings for a, b, _ in edges if b == m] == ["ConfigRoot"]
-
 def test_read_lab_rig_and_no_experiment_folder_are_top_level(wf):
     # As in the preflights and the tasks: ConfigRoot's mapping feeds ReadLabRig, then NoExperimentFolder, first of all.
     nodes, edges = lint.nodes_and_edges(lint.child(wf.root, W + "Workflow"))
@@ -154,17 +141,18 @@ def test_read_lab_rig_and_no_experiment_folder_are_top_level(wf):
     assert [p.get("Name") for p in nodes[0].iter(W + "Property")] == ["ConfigRoot"] and (0, 1) in [e[:2] for e in edges]
 
 
-def test_the_balance_camera_s_exposure_is_named_from_its_piece():
-    # As the rig cameras' (OpenRigs.Control DeclareDeviceControls, the piece the camera): Camera-Temporary.ExposureUs, the
-    # name app-rig-control's Calibrations page sets; CameraExposureUs is gone.
-    text = lint.Workflow(ROOT, "main.bonsai").text
-    assert text.count("orcl:DeclareDeviceControls") == 1 and "<orcl:Name>Camera-Temporary</orcl:Name>" in text
-    assert "CameraExposureUs" not in text
+def test_the_balance_camera_is_lib_s_piece():
+    # The piece Camera-Temporary (OpenRigs.Devices UsbCamera) declares Camera-Temporary.ExposureUs, the name
+    # app-rig-control's Calibrations page sets; it starts at 15625 (1/64 s), as the camera opened by hand did.
+    wf = lint.Workflow(ROOT, "main.bonsai")
+    (node,) = [n for n in wf.root.iter(W + "Expression") if n.get("Path") == "OpenRigs.Devices:UsbCamera.bonsai"]
+    assert node.findtext(W + "ExposureUs") == "15625"
+    assert "vid:UsbCamera" not in wf.text and "CameraExposureUs" not in wf.text
 
 
 def test_test_pulses_stop_at_go():
     # A Test train still firing at Go stops there, not alongside the priming (audit QF15, 16 Nov 2026): FirePulses
-    # finishes a train whose input has completed, so the cut is after it, on its pulses to TriggerCalibratedPulse.
+    # finishes a train whose input has completed, so the cut is after it, on its pulses to BehaviorBoard-Main.TriggerCalibratedPulse.
     group = next(e for e in lint.Workflow(ROOT, "main.bonsai").root.iter(W + "Expression") if e.findtext(W + "Name") == "Hardware")
     nodes, edges = lint.nodes_and_edges(group.find(W + "Workflow"))
     (train,) = [i for i, n in enumerate(nodes) if lint.kind(n) == "vc:TestTrain"]
@@ -173,7 +161,7 @@ def test_test_pulses_stop_at_go():
     assert lint.kind(nodes[cut]) == "rx:TakeUntil"
     (go,) = [a for a, b, label in edges if b == cut and label == "Source2"]
     assert lint._name(nodes[go]) == "ExperimentGo"
-    assert [lint._name(nodes[b]) for a, b, _ in edges if a == cut] == ["TriggerCalibratedPulse"]
+    assert [lint._name(nodes[b]) for a, b, _ in edges if a == cut] == ["BehaviorBoard-Main.TriggerCalibratedPulse"]
 
 
 def test_experiment_control_is_written_as_in_every_lab_workflow(wf):
