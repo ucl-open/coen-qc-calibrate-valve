@@ -136,7 +136,7 @@
                 </Command>
                 <Command>
                   <Name>Snapshot</Name>
-                  <Description>Saves the calibration camera's latest frame, full size, as calibration\images\&lt;text&gt;.jpg beside rig.yml: rig-control's Calibrations page reads the balance from it.</Description>
+                  <Description>Saves the calibration camera's latest frame, full size, as calibration\runs\&lt;text&gt;.jpg beside rig.yml (rig-control gives the text as &lt;kind&gt;\&lt;run&gt;\&lt;still&gt;, so each still lands in its run's folder): rig-control's Calibrations page reads the balance from it.</Description>
                 </Command>
                 <Command>
                   <Name>Test</Name>
@@ -1054,7 +1054,7 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Snapshots</Name>
-        <Description>Each Snapshot command saves the calibration camera's latest frame (Camera-Temporary.Data), full size, as &lt;RigConfigDirectory&gt;\calibration\images\&lt;the command's text&gt;.jpg, the folder made if need be. rig-control's Calibrations page asks for one once each weight is due and reads the balance's display from it, so no one types the weight. A Snapshot before the camera's first frame saves nothing. Before LiveView, which must stay the last node: it streams only subjects built before it.</Description>
+        <Description>Each Snapshot command saves the calibration camera's latest frame (Camera-Temporary.Data), full size, as &lt;RigConfigDirectory&gt;\calibration\runs\&lt;the command's text&gt;.jpg (rig-control gives &lt;kind&gt;\&lt;run&gt;\&lt;still&gt;: the run's folder), the folder made if need be. rig-control's Calibrations page asks for one once each weight is due and reads the balance's display from it, so no one types the weight. A Snapshot before the camera's first frame saves nothing. Before LiveView, which must stay the last node: it streams only subjects built before it.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="SubscribeSubject">
@@ -1072,7 +1072,7 @@
               <Combinator xsi:type="rx:WithLatestFrom" />
             </Expression>
             <Expression xsi:type="Format">
-              <Format>{1}\calibration\images\{0}.jpg</Format>
+              <Format>{1}\calibration\runs\{0}.jpg</Format>
               <Selector>Item1,Item2</Selector>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
