@@ -115,6 +115,7 @@
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Control:ExperimentControl.bonsai">
               <SubjectId />
               <SessionId />
+              <LaunchId />
               <ControlEndpoint>@tcp://127.0.0.1:5561</ControlEndpoint>
               <Parameters>
                 <Parameter>
@@ -140,7 +141,7 @@
                 </Command>
                 <Command>
                   <Name>Test</Name>
-                  <Description>Before Go, fires pulses to see a valve open at a width: the text is the width in ms, the pulses and the line, such as 20 10 DO1 (TestTrain). Not counted anywhere; ignored after Go.</Description>
+                  <Description>Before Go, fires pulses to see a valve open at a width: the text is the width in ms, the pulses and the line, such as 20 10 DO1 (TestTrain). Not counted anywhere. At Go the test pulses stop, a train still firing too (TakeUntil after its FirePulses), and later Tests are ignored.</Description>
                 </Command>
               </Commands>
             </Expression>
@@ -435,15 +436,15 @@
             <Edge From="14" To="20" Label="Source1" />
             <Edge From="20" To="21" Label="Source1" />
             <Edge From="22" To="23" Label="Source1" />
-            <Edge From="23" To="25" Label="Source1" />
+            <Edge From="23" To="27" Label="Source1" />
             <Edge From="24" To="25" Label="Source2" />
-            <Edge From="25" To="27" Label="Source1" />
             <Edge From="26" To="27" Label="Source2" />
             <Edge From="27" To="36" Label="Source1" />
             <Edge From="28" To="29" Label="Source1" />
             <Edge From="29" To="31" Label="Source1" />
             <Edge From="30" To="31" Label="Source2" />
-            <Edge From="31" To="32" Label="Source1" />
+            <Edge From="31" To="25" Label="Source1" />
+            <Edge From="25" To="32" Label="Source1" />
             <Edge From="33" To="34" Label="Source1" />
             <Edge From="34" To="11" Label="Source2" />
             <Edge From="35" To="36" Label="Source2" />

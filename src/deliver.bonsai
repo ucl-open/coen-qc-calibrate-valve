@@ -68,8 +68,10 @@
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Control:ExperimentControl.bonsai">
               <SubjectId />
               <SessionId />
+              <LaunchId />
               <ControlEndpoint>@tcp://127.0.0.1:5561</ControlEndpoint>
               <Parameters />
+              <Commands />
             </Expression>
             <Expression xsi:type="SubscribeSubject">
               <Name>ExperimentGo</Name>

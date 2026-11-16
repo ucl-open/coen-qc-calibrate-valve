@@ -160,3 +160,28 @@ def test_the_balance_camera_s_exposure_is_named_from_its_piece():
     text = lint.Workflow(ROOT, "main.bonsai").text
     assert text.count("orcl:DeclareDeviceControls") == 1 and "<orcl:Name>Camera-Temporary</orcl:Name>" in text
     assert "CameraExposureUs" not in text
+
+
+def test_test_pulses_stop_at_go():
+    # A Test train still firing at Go stops there, not alongside the priming (audit QF15, 16 Nov 2026): FirePulses
+    # finishes a train whose input has completed, so the cut is after it, on its pulses to TriggerCalibratedPulse.
+    group = next(e for e in lint.Workflow(ROOT, "main.bonsai").root.iter(W + "Expression") if e.findtext(W + "Name") == "Hardware")
+    nodes, edges = lint.nodes_and_edges(group.find(W + "Workflow"))
+    (train,) = [i for i, n in enumerate(nodes) if lint.kind(n) == "vc:TestTrain"]
+    (fire,) = [b for a, b, _ in edges if a == train + 1 and lint.kind(nodes[b]) == "core:FirePulses"]
+    (cut,) = [b for a, b, _ in edges if a == fire]
+    assert lint.kind(nodes[cut]) == "rx:TakeUntil"
+    (go,) = [a for a, b, label in edges if b == cut and label == "Source2"]
+    assert lint._name(nodes[go]) == "ExperimentGo"
+    assert [lint._name(nodes[b]) for a, b, _ in edges if a == cut] == ["TriggerCalibratedPulse"]
+
+
+def test_experiment_control_is_written_as_in_every_lab_workflow(wf):
+    # SubjectId, SessionId, LaunchId, ControlEndpoint, Parameters and Commands, as the preflight and the projector write
+    # it (audit QF16, 16 Nov 2026).
+    (node,) = [n for n in wf.root.iter(W + "Expression") if n.get("Path") == "OpenRigs.Control:ExperimentControl.bonsai"]
+    assert [c.tag.replace(W, "") for c in node] == ["SubjectId", "SessionId", "LaunchId", "ControlEndpoint", "Parameters", "Commands"]
+
+
+def test_no_debug_dump_in_the_repo():
+    assert not (ROOT / "blocks.txt").exists()
