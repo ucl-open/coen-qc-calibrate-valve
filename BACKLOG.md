@@ -15,3 +15,9 @@ History is in `git log`.
 - Every pulse is fired by `FirePulses` on `ClockFromBoard`'s `Timestamp`.
 - `valve-weights.csv` and `valve-pulses.csv` go through OpenRigs.Logging's `CsvWriter`.
 - Fits are app-rig-control's tested Python, never C# here (Bonsai measures, Python computes).
+
+## Audit round 1 (16 Nov 2026): not recommended
+
+- ManualPulses allowed on a RewardValve line (lib's lint, `workflow_lint.py:587-611`): flushing a valve is its job, and a calibrated pulse writes its own width.
+- No shared hardware include for the valve: one `main.bonsai` and `deliver.bonsai` for every rig, setting no clock, was chosen 16 Nov 2026 (see Decided).
+- Calibrate and deliver not merged: they differ in inputs, the camera and the fit guard.
