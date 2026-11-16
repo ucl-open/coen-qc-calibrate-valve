@@ -253,7 +253,7 @@ namespace CoenQcCalibrateValve
     // command at a time, until the balance's display moves, and only then reads it. A sample's drip
     // pulses are its own: they are added to its row's pulses.
     [Combinator]
-    [Description("Each Drip command as a burst: its text is the pulse count and, for the baseline, the line (such as '1 DO2'). With a sample (second input), at the sample's width on its valve; with the procedure, at its largest sample's width on the line named, else its first valve. At the procedure's pulseGapMs.")]
+    [Description("Each Drip command as a burst: its text is the pulse count and, for the baseline, the line (such as '1 DO2'). With a sample (second input), at the sample's width on its valve; with the procedure, at its largest sample's width on the line named, else its first valve. At the procedure's pulseGapMs. Third input: rig.yml's RewardValve lines; stops the workflow if the line is not one.")]
     [WorkflowElementCategory(ElementCategory.Combinator)]
     public class DripTrains
     {
@@ -266,20 +266,26 @@ namespace CoenQcCalibrateValve
             set { channel = value; }
         }
 
-        public IObservable<PulseTrain> Process(IObservable<string> commands, IObservable<DispenseSample> sample)
+        public IObservable<PulseTrain> Process(IObservable<string> commands, IObservable<DispenseSample> sample, IObservable<DigitalOutputs> rewardValves)
         {
-            return sample.Take(1).SelectMany(s => commands.Select(text => PulseTrain.Of(s, Channel, Parse(text).Item1)));
+            return sample.Take(1).SelectMany(s => rewardValves.Take(1).SelectMany(wired => commands.Select(text =>
+            {
+                var train = PulseTrain.Of(s, Channel, Parse(text).Item1);
+                Valves.Check(wired, new[] { train.Line });
+                return train;
+            })));
         }
 
-        public IObservable<PulseTrain> Process(IObservable<string> commands, IObservable<DispenseProcedure> procedure)
+        public IObservable<PulseTrain> Process(IObservable<string> commands, IObservable<DispenseProcedure> procedure, IObservable<DigitalOutputs> rewardValves)
         {
-            return procedure.Take(1).SelectMany(p => commands.Select(text =>
+            return procedure.Take(1).SelectMany(p => rewardValves.Take(1).SelectMany(wired => commands.Select(text =>
             {
                 var drip = Parse(text);
                 var valves = Valves.Of(p);
                 int line = drip.Item2 > 0 ? drip.Item2 : valves.Length > 0 ? valves[0] : Channel;
+                Valves.Check(wired, new[] { line });
                 return new PulseTrain { Line = line, PulseWidthMs = p.Samples.Max(x => x.PulseWidthMs), Pulses = drip.Item1, PulseGapMs = Valves.Gap(p) };
-            }));
+            })));
         }
 
         /// <summary>A Drip command's (pulses, line), the line 0 when not named.</summary>
@@ -339,16 +345,17 @@ namespace CoenQcCalibrateValve
     // window before starting (and then can edit)"): pulses on TriggerCalibratedPulse alone, never on
     // BurstPulses, so ManualBalance does not count them.
     [Combinator]
-    [Description("Each Test command as a burst: its text is the width in ms, the pulses and the line, such as '20 10 DO1', at the procedure's pulseGapMs. Input: (the command's text, the settings).")]
+    [Description("Each Test command as a burst: its text is the width in ms, the pulses and the line, such as '20 10 DO1', at the procedure's pulseGapMs. Input: ((the command's text, the settings), rig.yml's RewardValve lines); stops the workflow if the line is not a RewardValve.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
     public class TestTrain
     {
-        public IObservable<PulseTrain> Process(IObservable<Tuple<string, DispenseCalibration>> source)
+        public IObservable<PulseTrain> Process(IObservable<Tuple<Tuple<string, DispenseCalibration>, DigitalOutputs>> source)
         {
             return source.Select(input =>
             {
-                var test = Parse(input.Item1);
-                return new PulseTrain { Line = test.Item3, PulseWidthMs = test.Item1, Pulses = test.Item2, PulseGapMs = Valves.Gap(input.Item2.Procedure) };
+                var test = Parse(input.Item1.Item1);
+                Valves.Check(input.Item2, new[] { test.Item3 });
+                return new PulseTrain { Line = test.Item3, PulseWidthMs = test.Item1, Pulses = test.Item2, PulseGapMs = Valves.Gap(input.Item1.Item2.Procedure) };
             });
         }
 

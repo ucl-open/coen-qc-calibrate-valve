@@ -114,10 +114,14 @@ $drip = [CoenQcCalibrateValve.DripTrains]
 Check "Drip '5' is 5 pulses, no line" (($drip::Parse('5').Item1 -eq 5) -and ($drip::Parse('5').Item2 -eq 0))
 Check "Drip '1 DO2' is 1 pulse on line 2" (($drip::Parse('1 DO2').Item1 -eq 1) -and ($drip::Parse('1 DO2').Item2 -eq 2))
 foreach ($bad in '', '0', 'five', '1 DO4', '101') { Check "Drip '$bad' refused" (Refused { $drip::Parse($bad) }) }
-$trains = Items $train ((New-Object CoenQcCalibrateValve.DripTrains).Process((Obs ([string]) '3'), (Obs ([OpenRigs.Core.Calibration.DispenseSample]) $all.Samples[3])))
+$trains = Items $train ((New-Object CoenQcCalibrateValve.DripTrains).Process((Obs ([string]) '3'), (Obs ([OpenRigs.Core.Calibration.DispenseSample]) $all.Samples[3]), (Obs $board.GetType() $board)))
 Check "a sample's drip: its width on its valve ($(Train $trains[0]))" ((Train $trains[0]) -eq '3x20@DO2/80')
-$trains = Items $train ((New-Object CoenQcCalibrateValve.DripTrains).Process((Obs ([string]) '1 DO2'), (Obs ([OpenRigs.Core.Calibration.DispenseProcedure]) $all)))
+$trains = Items $train ((New-Object CoenQcCalibrateValve.DripTrains).Process((Obs ([string]) '1 DO2'), (Obs ([OpenRigs.Core.Calibration.DispenseProcedure]) $all), (Obs $board.GetType() $board)))
 Check "the baseline's drip: the largest width on the line named ($(Train $trains[0]))" ((Train $trains[0]) -eq '1x40@DO2/80')
+Check 'the baseline''s drip on a line not wired as a RewardValve refused' (Refused { Items $train ((New-Object CoenQcCalibrateValve.DripTrains).Process((Obs ([string]) '1 DO3'), (Obs ([OpenRigs.Core.Calibration.DispenseProcedure]) $all), (Obs $board.GetType() $board))) })
+$strayed = New-Object CoenQcCalibrateValve.DripTrains
+$strayed.Channel = 3
+Check 'a sample''s drip on a line not wired as a RewardValve refused' (Refused { Items $train ($strayed.Process((Obs ([string]) '3'), (Obs ([OpenRigs.Core.Calibration.DispenseSample]) ([OpenRigs.Core.Calibration.DispenseSample](New-Sample 20 10 80))), (Obs $board.GetType() $board))) })
 
 # A minimum per rig (Pip, 12 Nov 2026): the widths scaled so the smallest is MinPulseWidthMs, pulses as written.
 $ladder = { New-Settings @(@(40, 300), @(20, 600), @(25, 480), @(100, 120), @(30, 400), @(70, 171), @(50, 240)) }
@@ -134,9 +138,14 @@ foreach ($bad in '', '4', '101', '12.5', 'twenty') { Check "MinPulseWidthMs '$ba
 $test = [CoenQcCalibrateValve.TestTrain]::Parse('25 10 DO2')
 Check "Test '25 10 DO2' is 10 pulses of 25 ms on line 2" (($test.Item1 -eq 25) -and ($test.Item2 -eq 10) -and ($test.Item3 -eq 2))
 foreach ($bad in '', '25 10', '0 10 DO1', '25 0 DO1', '25 101 DO1', '501 10 DO1', '25 10 DO4') { Check "Test '$bad' refused" (Refused { [CoenQcCalibrateValve.TestTrain]::Parse($bad) }) }
-$testInput = [Tuple]::Create([string]'25 3 DO1', (New-Settings))
-$trains = Items $train ((New-Object CoenQcCalibrateValve.TestTrain).Process((Obs $testInput.GetType() $testInput)))
+function TestOn($text) {
+    $settings = [Tuple]::Create([string]$text, (New-Settings))
+    $testInput = [Tuple]::Create($settings, $board)
+    Items $train ((New-Object CoenQcCalibrateValve.TestTrain).Process((Obs $testInput.GetType() $testInput)))
+}
+$trains = TestOn '25 3 DO1'
 Check "a test: its width on its line at the procedure's gap ($(Train $trains[0]))" ((Train $trains[0]) -eq '3x25@DO1/80')
+Check 'a test on a line not wired as a RewardValve refused' (Refused { TestOn '25 3 DO3' })
 
 # The weights file's row carries the gap its burst was fired at.
 $inner = New-Object 'Tuple[Tuple[double,double],OpenRigs.Core.Calibration.DispenseSample]' ([Tuple]::Create([double]20.5, [double]20.1)), $all.Samples[1]

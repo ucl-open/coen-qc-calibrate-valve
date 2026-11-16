@@ -411,6 +411,12 @@
                 <Property Name="ConfigRoot" />
               </PropertyMappings>
             </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>RewardValveLines</Name>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:WithLatestFrom" />
+            </Expression>
           </Nodes>
           <Edges>
             <Edge From="4" To="5" Label="Source1" />
@@ -435,13 +441,15 @@
             <Edge From="28" To="29" Label="Source2" />
             <Edge From="29" To="31" Label="Source1" />
             <Edge From="30" To="31" Label="Source2" />
-            <Edge From="31" To="32" Label="Source1" />
+            <Edge From="31" To="40" Label="Source1" />
             <Edge From="32" To="33" Label="Source1" />
             <Edge From="33" To="35" Label="Source1" />
             <Edge From="34" To="35" Label="Source2" />
             <Edge From="35" To="36" Label="Source1" />
             <Edge From="37" To="38" Label="Source1" />
             <Edge From="38" To="15" Label="Source2" />
+            <Edge From="39" To="40" Label="Source2" />
+            <Edge From="40" To="32" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
@@ -649,6 +657,9 @@
                             <orc:PulseGapMs>0</orc:PulseGapMs>
                           </Combinator>
                         </Expression>
+                        <Expression xsi:type="SubscribeSubject">
+                          <Name>RewardValveLines</Name>
+                        </Expression>
                       </Nodes>
                       <Edges>
                         <Edge From="0" To="1" Label="Source1" />
@@ -668,6 +679,7 @@
                         <Edge From="16" To="17" Label="Source2" />
                         <Edge From="17" To="10" Label="Source1" />
                         <Edge From="3" To="11" Label="Source1" />
+                        <Edge From="18" To="9" Label="Source3" />
                       </Edges>
                     </Workflow>
                   </Expression>
@@ -780,6 +792,9 @@
                             <orc:PulseGapMs>0</orc:PulseGapMs>
                           </Combinator>
                         </Expression>
+                        <Expression xsi:type="SubscribeSubject">
+                          <Name>RewardValveLines</Name>
+                        </Expression>
                       </Nodes>
                       <Edges>
                         <Edge From="0" To="1" Label="Source1" />
@@ -802,6 +817,7 @@
                         <Edge From="10" To="11" Label="Source1" />
                         <Edge From="11" To="12" Label="Source1" />
                         <Edge From="2" To="13" Label="Source1" />
+                        <Edge From="20" To="8" Label="Source3" />
                       </Edges>
                     </Workflow>
                   </Expression>
