@@ -14,8 +14,8 @@ from open_rigs.rigs.lab_rig import LabRig
 ROOT = Path(__file__).parents[1]
 RIGS = sorted((ROOT / "tests" / "rigs").glob("*.yml"))
 W, XSI = lint.W, lint.XSI
-# Each workflow's own stage: the old Ready (1 s after the board's first event, once PulseOutputs' setup has gone out,
-# and the spouts in), ReadyGate's WorkflowStages, which Ready waits for beside the clock.
+# Each workflow's own stage: the spouts in, ReadyGate's WorkflowStages, which Ready waits for beside the clock and
+# PulseOutputs' PulsesEnabled (PieceStages).
 WORKFLOWS = {"main.bonsai": "CalibrationReady", "deliver.bonsai": "DeliveryReady"}
 
 
@@ -35,11 +35,18 @@ def test_the_hardware_is_the_lab_pieces(wf):
 
 def test_the_board_s_time_is_read_and_never_set(wf):
     # One workflow for every rig with valves (Pip, 16 Nov 2026): it records nothing and times pulses only against
-    # each other, so it reads the board's time as it runs and Ready waits for HarpClockRead.
+    # each other, so it reads the board's time as it runs and Ready waits for HarpClockRead and for PulseOutputs'
+    # PulsesEnabled, no fixed timer.
     pieces = lint.hardware(wf)
     assert [(path, props.get("SetClock")) for path, props in pieces if path in lint.CLOCKS] == [
         (lint.CLOCK_FROM_BOARD, "false")]
-    assert dict(pieces)[lint.READY_GATE]["PieceStages"] == lint.CLOCK_READ
+    assert dict(pieces)[lint.READY_GATE]["PieceStages"] == f"{lint.CLOCK_READ}, PulsesEnabled"
+
+
+def test_a_stop_ends_headless_bonsai(wf):
+    # A stop held up in a device's teardown would keep headless Bonsai running until the agent's kill: OpenRigs.Control's
+    # EndAfterStop ends it 2 s after the stop.
+    assert wf.text.count("orcl:EndAfterStop") == 1
 
 
 def test_the_devices_it_drives(wf):
@@ -145,3 +152,11 @@ def test_read_lab_rig_and_no_experiment_folder_are_top_level(wf):
     nodes, edges = lint.nodes_and_edges(lint.child(wf.root, W + "Workflow"))
     assert [n.get("Path") for n in nodes[1:3]] == [lint.READ_LAB_RIG, lint.NO_EXPERIMENT_FOLDER]
     assert [p.get("Name") for p in nodes[0].iter(W + "Property")] == ["ConfigRoot"] and (0, 1) in [e[:2] for e in edges]
+
+
+def test_the_balance_camera_s_exposure_is_named_from_its_piece():
+    # As the rig cameras' (OpenRigs.Control DeclareDeviceControls, the piece the camera): Camera-Temporary.ExposureUs, the
+    # name app-rig-control's Calibrations page sets; CameraExposureUs is gone.
+    text = lint.Workflow(ROOT, "main.bonsai").text
+    assert text.count("orcl:DeclareDeviceControls") == 1 and "<orcl:Name>Camera-Temporary</orcl:Name>" in text
+    assert "CameraExposureUs" not in text

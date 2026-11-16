@@ -79,6 +79,12 @@
                 <orcl:Phase>Recording</orcl:Phase>
               </Combinator>
             </Expression>
+            <Expression xsi:type="Combinator">
+              <Description>Ends headless Bonsai when it is still running 2 s after the controller's stop: the live view's publisher threads keep the process alive until every device's teardown reaches them, so one held up would keep Bonsai running until the agent's kill; exit code 1 after any other end. Nothing in the editor.</Description>
+              <Combinator xsi:type="orcl:EndAfterStop">
+                <orcl:GraceSeconds>2</orcl:GraceSeconds>
+              </Combinator>
+            </Expression>
           </Nodes>
           <Edges>
             <Edge From="0" To="1" Label="Source1" />
@@ -88,11 +94,11 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Hardware</Name>
-        <Description>The rig's pieces, as in a session (lib-open-rigs building-blocks): the Ready gate (ReadyGate), the behavior board BehaviorBoard-Main on rig.yml's port (BehaviorBoard, which clears any ZapitTrigger line however the workflow stops), its time, read and never set (ClockFromBoard, SetClock false: Timestamp, the board's time from its analog data events, 1 kHz, as it runs, following the timestamp generator on a dome and its own elsewhere, which the pulses are timed on relative to each other, as before the device pieces) and its pulsed lines (PulseOutputs: rig.yml's outputPulseEnable without the ZapitTrigger line, stopping at Start if a RewardValve line is not among them; TriggerCalibratedPulse fires one pulse of a given width on a line). Ready (ReadyGate) once the board's time is read (PieceStages, HarpClockRead, at its first heartbeat) and DeliveryReady, this workflow's own stage (WorkflowStages), has come: 1 s after the board's first event, once PulseOutputs' setup has gone out, and once the spouts are in (SpoutsReady).</Description>
+        <Description>The rig's pieces, as in a session (lib-open-rigs building-blocks): the Ready gate (ReadyGate), the behavior board BehaviorBoard-Main on rig.yml's port (BehaviorBoard, which clears any ZapitTrigger line however the workflow stops), its time, read and never set (ClockFromBoard, SetClock false: Timestamp, the board's time from its analog data events, 1 kHz, as it runs, following the timestamp generator on a dome and its own elsewhere, which the pulses are timed on relative to each other, as before the device pieces) and its pulsed lines (PulseOutputs: rig.yml's outputPulseEnable without the ZapitTrigger line, stopping at Start if a RewardValve line is not among them; TriggerCalibratedPulse fires one pulse of a given width on a line). Ready (ReadyGate) once the board's time is read (PieceStages, HarpClockRead, at its first heartbeat), PulseOutputs' setup has gone out (PulsesEnabled: pulse mode and widths on its lines, so a Go cannot fire a pulse on a line not yet in pulse mode) and DeliveryReady, this workflow's own stage (WorkflowStages), has come: the spouts are in (SpoutsReady).</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:ReadyGate.bonsai">
-              <PieceStages>HarpClockRead</PieceStages>
+              <PieceStages>HarpClockRead, PulsesEnabled</PieceStages>
               <WorkflowStages>DeliveryReady</WorkflowStages>
             </Expression>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.BehaviorBoard.bonsai">
@@ -112,23 +118,7 @@
               <BoardDataSubjectName>BehaviorBoard-Main.Data</BoardDataSubjectName>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
-              <Name>BehaviorBoard-Main.Data</Name>
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="rx:Take">
-                <rx:Count>1</rx:Count>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="rx:Delay">
-                <rx:DueTime>PT1S</rx:DueTime>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="SubscribeSubject">
               <Name>SpoutsReady</Name>
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="rx:Zip" />
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="rx:Take">
@@ -147,11 +137,7 @@
           <Edges>
             <Edge From="4" To="5" Label="Source1" />
             <Edge From="5" To="6" Label="Source1" />
-            <Edge From="6" To="8" Label="Source1" />
-            <Edge From="7" To="8" Label="Source2" />
-            <Edge From="8" To="9" Label="Source1" />
-            <Edge From="9" To="10" Label="Source1" />
-            <Edge From="10" To="11" Label="Source1" />
+            <Edge From="6" To="7" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
