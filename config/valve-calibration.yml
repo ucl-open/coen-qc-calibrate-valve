@@ -6,7 +6,7 @@
 # launch; never from here.
 #
 # The balance is read by rig-control (OpenRigs.Devices ManualBalance): after each burst the run asks for
-# the weight and waits up to weighTimeoutS for rig-control to send it, read off the camera or typed,
+# the weight and waits up to weighTimeoutSeconds for rig-control to send it, read off the camera or typed,
 # taking that one reading (settleWindow 1).
 # Each sample fires its `pulses` pulses of `pulseWidthMs`, then weighs the gain. Seven widths, closer
 # together at the short end: 20, 25, 30, 40, 50, 70 and 100 ms, each measured twice (three times until 9 Nov 2026, Pip: "just do 2 repeats, not 3, for now"), in rounds of
@@ -47,4 +47,4 @@ procedure:
   primingPulseWidthMs: 500 # ms each, so the line is full before the baseline (Pip); unset is the largest sample's
   densityGPerMl: 1.0
   settleWindow: 1
-  weighTimeoutS: 3600
+  weighTimeoutSeconds: 3600

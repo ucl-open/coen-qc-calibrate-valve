@@ -44,7 +44,7 @@
             </Expression>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:LickSpoutStage.bonsai" />
             <Expression xsi:type="SubscribeSubject">
-              <Name>LickSpoutStage.Target</Name>
+              <Name>LickSpoutStage-Main.Target</Name>
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="rx:Take">
@@ -63,7 +63,7 @@
               </Combinator>
             </Expression>
             <Expression xsi:type="MulticastSubject">
-              <Name>LickSpoutStage.Target</Name>
+              <Name>LickSpoutStage-Main.Target</Name>
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="vc:WaitForMove" />
@@ -96,7 +96,7 @@
               </Combinator>
             </Expression>
             <Expression xsi:type="MulticastSubject">
-              <Name>LickSpoutStage.Commands</Name>
+              <Name>LickSpoutStage-Main.Commands</Name>
             </Expression>
             <Expression xsi:type="WorkflowOutput" />
           </Nodes>

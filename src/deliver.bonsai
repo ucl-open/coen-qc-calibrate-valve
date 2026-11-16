@@ -89,11 +89,11 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Hardware</Name>
-        <Description>The rig's pieces, as in a session (lib-open-rigs building-blocks): the Ready gate (ReadyGate), the behavior board BehaviorBoard-Main on rig.yml's port (BehaviorBoard, which clears any ZapitTrigger line however the workflow stops), its clock (ClockFromBoard: Timestamp, the board's own time from its analog data events, 1 kHz, which the pulses are timed on, as before the device pieces) and its pulsed lines (PulseOutputs: rig.yml's outputPulseEnable without the ZapitTrigger line, stopping at Start if a RewardValve line is not among them; TriggerCalibratedPulse fires one pulse of a given width on a line). Ready (ReadyGate) once the clock is set (ReadyWaitsFor) and DeliveryReady, this workflow's own stage (WorkflowStages), has come: 1 s after the board's first event, once PulseOutputs' setup has gone out, and once the spouts are in (SpoutsReady).</Description>
+        <Description>The rig's pieces, as in a session (lib-open-rigs building-blocks): the Ready gate (ReadyGate), the behavior board BehaviorBoard-Main on rig.yml's port (BehaviorBoard, which clears any ZapitTrigger line however the workflow stops), its clock (ClockFromBoard: Timestamp, the board's own time from its analog data events, 1 kHz, which the pulses are timed on, as before the device pieces) and its pulsed lines (PulseOutputs: rig.yml's outputPulseEnable without the ZapitTrigger line, stopping at Start if a RewardValve line is not among them; TriggerCalibratedPulse fires one pulse of a given width on a line). Ready (ReadyGate) once the clock is set (PieceStages) and DeliveryReady, this workflow's own stage (WorkflowStages), has come: 1 s after the board's first event, once PulseOutputs' setup has gone out, and once the spouts are in (SpoutsReady).</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:ReadyGate.bonsai">
-              <ReadyWaitsFor>HarpClockSet</ReadyWaitsFor>
+              <PieceStages>HarpClockSet</PieceStages>
               <WorkflowStages>DeliveryReady</WorkflowStages>
             </Expression>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.BehaviorBoard.bonsai">

@@ -180,11 +180,11 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Hardware</Name>
-        <Description>The rig's pieces, as in a session (lib-open-rigs building-blocks): the Ready gate (ReadyGate), the behavior board BehaviorBoard-Main on rig.yml's port (BehaviorBoard, which clears any ZapitTrigger line however the workflow stops), its clock (ClockFromBoard: the board's clock set to UTC, HarpClockSet, and Timestamp, the board's own time from its analog data events, 1 kHz, which every burst is timed on, OpenRigs.Core FirePulses at the procedure's pulseGapMs, as before the device pieces) and its pulsed lines (PulseOutputs: rig.yml's outputPulseEnable without the ZapitTrigger line, stopping at Start if a RewardValve line is not among them; TriggerCalibratedPulse fires one pulse of a given width on a line). Ready (ReadyGate) once the clock is set (ReadyWaitsFor) and CalibrationReady, this workflow's own stage (WorkflowStages), has come: 1 s after the board's first event, once PulseOutputs' setup (pulse mode on its lines, 0.5 s after that event) has gone out, so a Go cannot fire a pulse on a line not yet in pulse mode, and the spouts are in (SpoutsReady, Extensions\Spouts.bonsai). The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. The calibration camera (Pip, 10 Nov 2026) is a USB camera plugged in on the balance, a different one on each rig and in no rig.yml: OpenRigs.Video UsbCamera opens the first that is not the rig's own (none of rig.yml's camera serials, no FLIR or Basler vendor id), free-running, and publishes its frames as Camera-Temporary.Data, which LiveView streams as a temporary device and Snapshots saves; none plugged in stops the workflow at start, saying so. Nothing is recorded. Its exposure is the controller's CameraExposureUs parameter, the rig cameras' name and unit (Pip, 10 Nov 2026: one setting for one meaning), taken at the nearest power of two of a second the camera allows: it starts at 15625 (1/64 s) and takes each value the controller sets (OnParameterSet) straight to the open camera, so rig-control's Calibrations page can make the balance's display readable; ParameterDefault shows the starting value 1 s in, once the controller is up. No gain: a USB camera's has no unit common to its models. No camera trigger runs, so DO0 and DO1 stay free.</Description>
+        <Description>The rig's pieces, as in a session (lib-open-rigs building-blocks): the Ready gate (ReadyGate), the behavior board BehaviorBoard-Main on rig.yml's port (BehaviorBoard, which clears any ZapitTrigger line however the workflow stops), its clock (ClockFromBoard: the board's clock set to UTC, HarpClockSet, and Timestamp, the board's own time from its analog data events, 1 kHz, which every burst is timed on, OpenRigs.Core FirePulses at the procedure's pulseGapMs, as before the device pieces) and its pulsed lines (PulseOutputs: rig.yml's outputPulseEnable without the ZapitTrigger line, stopping at Start if a RewardValve line is not among them; TriggerCalibratedPulse fires one pulse of a given width on a line). Ready (ReadyGate) once the clock is set (PieceStages) and CalibrationReady, this workflow's own stage (WorkflowStages), has come: 1 s after the board's first event, once PulseOutputs' setup (pulse mode on its lines, 0.5 s after that event) has gone out, so a Go cannot fire a pulse on a line not yet in pulse mode, and the spouts are in (SpoutsReady, Extensions\Spouts.bonsai). The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. The calibration camera (Pip, 10 Nov 2026) is a USB camera plugged in on the balance, a different one on each rig and in no rig.yml: OpenRigs.Video UsbCamera opens the first that is not the rig's own (none of rig.yml's camera serials, no FLIR or Basler vendor id), free-running, and publishes its frames as Camera-Temporary.Data, which LiveView streams as a temporary device and Snapshots saves; none plugged in stops the workflow at start, saying so. Nothing is recorded. Its exposure is the controller's CameraExposureUs parameter, the rig cameras' name and unit (Pip, 10 Nov 2026: one setting for one meaning), taken at the nearest power of two of a second the camera allows: it starts at 15625 (1/64 s) and takes each value the controller sets (OnParameterSet) straight to the open camera, so rig-control's Calibrations page can make the balance's display readable; ParameterDefault shows the starting value 1 s in, once the controller is up. No gain: a USB camera's has no unit common to its models. No camera trigger runs, so DO0 and DO1 stay free.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:ReadyGate.bonsai">
-              <ReadyWaitsFor>HarpClockSet</ReadyWaitsFor>
+              <PieceStages>HarpClockSet</PieceStages>
               <WorkflowStages>CalibrationReady</WorkflowStages>
             </Expression>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.BehaviorBoard.bonsai">
@@ -560,7 +560,7 @@
                   <Expression xsi:type="PropertyMapping">
                     <PropertyMappings>
                       <Property Name="SettleWindow" Selector="Procedure.SettleWindow" />
-                      <Property Name="TimeoutSeconds" Selector="Procedure.WeighTimeoutS" />
+                      <Property Name="TimeoutSeconds" Selector="Procedure.WeighTimeoutSeconds" />
                     </PropertyMappings>
                   </Expression>
                   <Expression xsi:type="rx:CreateObservable">
@@ -685,7 +685,7 @@
                   <Expression xsi:type="PropertyMapping">
                     <PropertyMappings>
                       <Property Name="SettleWindow" Selector="Procedure.SettleWindow" />
-                      <Property Name="TimeoutSeconds" Selector="Procedure.WeighTimeoutS" />
+                      <Property Name="TimeoutSeconds" Selector="Procedure.WeighTimeoutSeconds" />
                     </PropertyMappings>
                   </Expression>
                   <Expression xsi:type="rx:CreateObservable">
