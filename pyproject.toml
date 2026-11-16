@@ -17,7 +17,7 @@ package = false
 
 [tool.uv.sources]
 # lib-open-rigs' update-workflows moves this pin.
-open-rigs = {git = "https://github.com/Coen-Lab/lib-open-rigs", rev = "ec974f59b43daa7b3039c78f684089b25cee8c79"}
+open-rigs = {git = "https://github.com/Coen-Lab/lib-open-rigs", rev = "c8782ac0b8313fc844286a875c7184bfdf7b08ae"}
 swc-aeon = { git = "https://github.com/SainsburyWellcomeCentre/aeon_api.git", branch = "main" }
 
 [tool.pytest.ini_options]
