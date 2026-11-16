@@ -103,7 +103,8 @@ def test_every_pulse_is_timed_on_the_board_analog_data_time(wf):
 
 
 def test_no_experiment_folder(wf):
-    # PathPrefix is declared and never published, so no piece's log starts.
-    declared = [n for n in wf.root.iter(W + "Expression") if lint._name(n) == "PathPrefix"]
-    assert [(n.get(XSI), n.get("TypeArguments")) for n in declared] == [("rx:BehaviorSubject", "sys:String")]
-    assert not [n for n in wf.root.iter(W + "Expression") if n.get(XSI) == "MulticastSubject" and lint._name(n) == "PathPrefix"]
+    # NoExperimentFolder's PathPrefix is never published, so no piece's log starts; its SubjectId is no mouse's, so the
+    # spouts go to rig.yml's lickSpoutDefaultPosition (Spouts.bonsai declared it until 16 Nov 2026).
+    assert lint.no_experiment_folder_problems(wf) == []
+    (node,) = [n for n in wf.root.iter(W + "Expression") if n.get("Path") == lint.NO_EXPERIMENT_FOLDER]
+    assert node.findtext(W + "SubjectId") == "_valve-calibration_"

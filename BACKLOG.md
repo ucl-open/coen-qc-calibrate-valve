@@ -1,5 +1,9 @@
 # Backlog
 
+## 2026-11-16 NoExperimentFolder (OpenRigs.Logging .16)
+
+Done: `src\main.bonsai` and `src\deliver.bonsai` include lib-open-rigs' `NoExperimentFolder` (`SubjectId` `_valve-calibration_`) in their Settings group, in place of their own never-published `PathPrefix`; `src\Extensions\Spouts.bonsai` drops its own `SubjectId` (the same `_valve-calibration_`). Nothing written changes: no piece logs, the spouts still go to rig.yml's `lickSpoutDefaultPosition`, and the weights and pulses files are as before. `tests\test_workflow.py` holds both workflows to `no_experiment_folder_problems`.
+
 ## 2026-11-16 PulseClock gone: ClockFromBoard's Timestamp is the 1 kHz analog data time (OpenRigs.Devices .23)
 
 Done: OpenRigs.Devices .23 (lib-open-rigs, unpushed) publishes `ClockFromBoard`'s `Timestamp` from the board's AnalogData events, as `PulseClock` did, so `PulseClock` is deleted and all six `FirePulses` (five in main, one in deliver) take `Timestamp`. Pulse spacing unchanged: each next pulse fires on the first 1 ms tick at least `pulseGapMs` (80) after the last one closes. `tests\test_workflow.py` holds every `FirePulses` to `Timestamp` and reads the installed package's `ClockFromBoard`. The Python tests need lib's lint (`uv pip install` the lib clone, `uv run --no-sync`) until `update-workflows` moves the open-rigs pin past 38aed51.

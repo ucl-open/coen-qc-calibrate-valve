@@ -9,7 +9,7 @@
                  xmlns:vc="clr-namespace:CoenQcCalibrateValve;assembly=Extensions"
                  xmlns:sys="clr-namespace:System;assembly=mscorlib"
                  xmlns="https://bonsai-rx.org/2018/workflow">
-  <Description>Delivers water on one valve at a reward's pulse width (Pip, 11 Nov 2026), so a valve's calibration can be checked by weighing what it gives: Pulses pulses of PulseWidthMs on Channel at PulseGapMs, fired on the board's Harp clock as the calibration fires them (OpenRigs.Core FirePulses). rig-control's Calibrations page works out the width and the pulses from the valve's curve (1 ml at the reward size) and gives the curve's pulseGapMs; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml, read into the lab rig model (OpenRigs.Devices ReadLabRig). The hardware is the lab's device pieces, as in a session (OpenRigs.Devices ReadyGate, BehaviorBoard, ClockFromBoard, PulseOutputs, LickSpoutStage); PathPrefix never comes, so no piece logs. On a rig with a lick spout stage the spouts go to rig.yml's lickSpoutDefaultPosition first and out after (Extensions\Spouts.bonsai). Ready once the board's clock is set, its pulse setup has gone out and the spouts are in; Go fires the pulses, reporting each as the delivered metric; Finished once the last has closed. Nothing is written.</Description>
+  <Description>Delivers water on one valve at a reward's pulse width (Pip, 11 Nov 2026), so a valve's calibration can be checked by weighing what it gives: Pulses pulses of PulseWidthMs on Channel at PulseGapMs, fired on the board's Harp clock as the calibration fires them (OpenRigs.Core FirePulses). rig-control's Calibrations page works out the width and the pulses from the valve's curve (1 ml at the reward size) and gives the curve's pulseGapMs; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml, read into the lab rig model (OpenRigs.Devices ReadLabRig). The hardware is the lab's device pieces, as in a session (OpenRigs.Devices ReadyGate, BehaviorBoard, ClockFromBoard, PulseOutputs, LickSpoutStage); a delivery has no experiment folder (OpenRigs.Logging NoExperimentFolder), so no piece logs. On a rig with a lick spout stage the spouts go to rig.yml's lickSpoutDefaultPosition first and out after (Extensions\Spouts.bonsai). Ready once the board's clock is set, its pulse setup has gone out and the spouts are in; Go fires the pulses, reporting each as the delivered metric; Finished once the last has closed. Nothing is written.</Description>
   <Workflow>
     <Nodes>
       <Expression xsi:type="ExternalizedMapping">
@@ -17,7 +17,7 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Settings</Name>
-        <Description>RigConfigDirectory is &lt;ConfigRoot&gt;\&lt;MACHINE-NAME&gt;; RigConfigs is rig.yml there in the lab rig model (OpenRigs.Devices ReadLabRig, as every lab workflow reads it). RewardValveLines is the lines BehaviorBoard-Main's wiring gives a RewardValve (OpenRigs.Devices WiredOutputs); it stops the workflow if rig.yml has no such board or no RewardValve on DO1 to DO3. PathPrefix is declared and never published: a delivery has no experiment folder, so the pieces' logs, which wait for it, never start.</Description>
+        <Description>RigConfigDirectory is &lt;ConfigRoot&gt;\&lt;MACHINE-NAME&gt;; RigConfigs is rig.yml there in the lab rig model (OpenRigs.Devices ReadLabRig, as every lab workflow reads it). RewardValveLines is the lines BehaviorBoard-Main's wiring gives a RewardValve (OpenRigs.Devices WiredOutputs); it stops the workflow if rig.yml has no such board or no RewardValve on DO1 to DO3. NoExperimentFolder (OpenRigs.Logging) declares PathPrefix, never published, as a delivery has no experiment folder, so the pieces' logs, which wait for it, never start; and SubjectId, _valve-calibration_, no mouse's, so the spouts go to rig.yml's lickSpoutDefaultPosition.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
@@ -41,8 +41,8 @@
             <Expression xsi:type="rx:BehaviorSubject" TypeArguments="sys:Boolean">
               <rx:Name>SpoutsReady</rx:Name>
             </Expression>
-            <Expression xsi:type="rx:BehaviorSubject" TypeArguments="sys:String">
-              <rx:Name>PathPrefix</rx:Name>
+            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Logging:NoExperimentFolder.bonsai">
+              <SubjectId>_valve-calibration_</SubjectId>
             </Expression>
           </Nodes>
           <Edges>
