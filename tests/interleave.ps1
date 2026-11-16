@@ -145,7 +145,7 @@ $weighed = [Tuple]::Create($inner, [int]2)
 $row = (Items ([CoenQcCalibrateValve.ValveWeighing]) ((New-Object CoenQcCalibrateValve.ValveWeighingRow).Process((Obs $weighed.GetType() $weighed))))[0]
 Check 'a weights row: its drips in its pulses, its valve and its gap' (($row.pulses -eq 252) -and ($row.channel -eq 2) -and ($row.pulseGapMs -eq 80) -and ($row.beforeG -eq 20.1))
 
-# Delivering water (deliver.bonsai) at the calibration file's gap, on a wired valve only.
+# Delivering water (deliver-dome.bonsai, deliver-box.bonsai) at the calibration file's gap, on a wired valve only.
 function Deliver($channel, $gap) {
     $d = New-Object CoenQcCalibrateValve.DeliverTrain
     $d.Channel = $channel; $d.PulseWidthMs = 30; $d.Pulses = 10; $d.PulseGapMs = $gap
