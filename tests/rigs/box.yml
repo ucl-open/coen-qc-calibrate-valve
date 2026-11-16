@@ -25,7 +25,7 @@ camera:
     discriminatorType: SpinnakerCamera
     exposureTime: 3000.0
     gain: 1.0
+    pixelFormat: Mono8
     serialNumber: '23201539'
-    triggerFrequency: 50.0
 rigId: S1
 rootPath: C:\Coen-Lab-Local\Acquired-Data

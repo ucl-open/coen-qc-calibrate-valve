@@ -1,5 +1,18 @@
 # Backlog
 
+## 2026-11-16 Onto the lab's device pieces (lib-open-rigs 5ea5729)
+
+Done: the calibration and the delivery use lib's pieces, never a device opened by hand (Pip, 16 Nov 2026): `ReadyGate`, `BehaviorBoard`, `ClockFromBoard`, `PulseOutputs`, and `LickSpoutStage` behind the rig's stage (was the old `BehaviorBoard` include with its own `RigDevice`, `PulseController`, `BehaviorBoard.Timestamps` and `HarpLickSpoutStage`). `PathPrefix` declared and never published, so no piece logs. Every pulse fires as before: the same ValveTrains, DripTrains, TestTrain and DeliverTrain into the same `FirePulses` (unchanged in lib from 38aed51 to 5ea5729), on the same clock (the board's analog data time, now `PulseClock`), into the same `PulseController` (unchanged). Changes, each an improvement:
+- `-pulses.csv`: the setup rows before the first pulse show `PulseDO1` to `PulseDO3` at 1 ms (PulseOutputs' placeholder), not 10 ms. Every fired pulse still writes its own width first. Columns and file names unchanged.
+- The pulse-enabled lines are rig.yml's `outputPulseEnable` without the ZapitTrigger line (was the RewardValve lines), the same lines on every rig, and a RewardValve line missing from `outputPulseEnable` stops it at Start, as it stops every task.
+- The ZapitTrigger line is cleared however the workflow stops (BehaviorBoard's `ClearOutputsOnStop`); the board's clock is set to UTC, re-sent until it agrees, and a clock that stops for 3 s stops the workflow (ClockFromBoard).
+- `tests\rigs\box.yml`: camera `triggerFrequency` dropped (the lab rig model refuses it) and `pixelFormat: Mono8` written out.
+
+Suggestions for lib (lib frozen at 5ea5729 for this push):
+- `ClockFromBoard`'s `Timestamp` is the heartbeat, once a second, so `FirePulses` on it (DeliverReward on a box-clocked rig) fires one pulse a second. Publish it from the board's analog data events, as `BehaviorBoard.Timestamps` did, and this workflow's `PulseClock` goes.
+- `hardware_problems` knows only the pieces' Ready stages; this workflow announces its own (`CalibrationReady`, `DeliveryReady`: pulse setup out and spouts in), so `tests\test_workflow.py` expects that one problem. A `ReadyGate` property for a workflow's own stages, or lint reading local includes, would end the exception.
+- A conditional piece (a stage only where rig.yml has one) is invisible to `required_devices` here, as it sits in `Extensions\Spouts.bonsai`.
+
 ## Audit round 3 of 3 (15 Nov 2026)
 
 - `scripts\deploy.ps1` exits 1 naming `.bonsai\Setup.ps1` when it is missing (a missing script left the last exit code, 0).

@@ -17,7 +17,7 @@
                  xmlns:harp="clr-namespace:Bonsai.Harp;assembly=Bonsai.Harp"
                  xmlns:beh="clr-namespace:Harp.Behavior;assembly=Harp.Behavior"
                  xmlns="https://bonsai-rx.org/2018/workflow">
-  <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines (Channel or Channels) and FileName; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml, read into the lab rig model (OpenRigs.Devices ReadLabRig), and every burst is fired on the board's Harp clock at the procedure's one pulseGapMs (OpenRigs.Core FirePulses). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its pulses. The procedure (pulse widths, pulses) is config\valve-calibration.yml, its widths scaled at Go so the smallest is the MinPulseWidthMs parameter (ScaleWidths); before Go, Test commands fire a few pulses at a width so a valve's opening can be seen (TestTrain). On a rig whose rig.yml has a lick spout stage, OpenRigs.Devices HarpLickSpoutStage homes it and moves the spouts to rig.yml's lickSpoutDefaultPosition, then both in/out axes fully forward, before Ready, and back to the in position once the last burst is weighed (Extensions\Spouts.bonsai). Ready once the board answers and the spouts are in; Go runs the procedure; Finished once every burst is weighed.</Description>
+  <Description>Calibrates the reward valves on the behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Channels, such as 1, 2): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. rig-control's Calibrations page launches it with the lines (Channel or Channels) and FileName; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml, read into the lab rig model (OpenRigs.Devices ReadLabRig), and every burst is fired on the board's Harp clock at the procedure's one pulseGapMs (OpenRigs.Core FirePulses). The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its pulses. The procedure (pulse widths, pulses) is config\valve-calibration.yml, its widths scaled at Go so the smallest is the MinPulseWidthMs parameter (ScaleWidths); before Go, Test commands fire a few pulses at a width so a valve's opening can be seen (TestTrain). The hardware is the lab's device pieces, as in a session (OpenRigs.Devices ReadyGate, BehaviorBoard, ClockFromBoard, PulseOutputs, LickSpoutStage); a calibration has no experiment folder, so PathPrefix never comes and no piece logs. On a rig whose rig.yml has a lick spout stage, OpenRigs.Devices LickSpoutStage homes it and moves the spouts to rig.yml's lickSpoutDefaultPosition, then both in/out axes fully forward, before Ready, and back to the in position once the last burst is weighed (Extensions\Spouts.bonsai). Ready once the board's clock is set, its pulse setup has gone out and the spouts are in; Go runs the procedure; Finished once every burst is weighed.</Description>
   <Workflow>
     <Nodes>
       <Expression xsi:type="ExternalizedMapping">
@@ -27,7 +27,7 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Settings</Name>
-        <Description>RigConfigDirectory is &lt;ConfigRoot&gt;\&lt;MACHINE-NAME&gt;, where the calibration writes its weights; RigConfigs is rig.yml there in the lab rig model (OpenRigs.Devices ReadLabRig, as every lab workflow reads it). BehaviorBoard-Main is the board's entry (OpenRigs.Core RigDevice) and RewardValveLines its lines wiring gives a RewardValve (OpenRigs.Devices WiredOutputs); either stops the workflow if rig.yml has no such board or no RewardValve on DO1 to DO3. ValveCalibrationSettings is config\valve-calibration.yml expanded over the valves (InterleaveValves, src\Extensions): each sample once per valve in Channels (else the one Channel), in turn, and the priming pulses once per valve, so ManualBalance, RunCalibration and the weights file all follow the bursts as they fire; it stops the workflow if a valve is not a RewardValve in rig.yml or the samples are at different pulseGapMs. Fails at startup if the machine has no configuration directory.</Description>
+        <Description>RigConfigDirectory is &lt;ConfigRoot&gt;\&lt;MACHINE-NAME&gt;, where the calibration writes its weights; RigConfigs is rig.yml there in the lab rig model (OpenRigs.Devices ReadLabRig, as every lab workflow reads it). RewardValveLines is the lines BehaviorBoard-Main's wiring gives a RewardValve (OpenRigs.Devices WiredOutputs); it stops the workflow if rig.yml has no such board or no RewardValve on DO1 to DO3. PathPrefix is declared and never published: a calibration has no experiment folder, so the pieces' logs (BehaviorBoard-Main, the stage's drivers), which wait for it, never start. ValveCalibrationSettings is config\valve-calibration.yml expanded over the valves (InterleaveValves, src\Extensions): each sample once per valve in Channels (else the one Channel), in turn, and the priming pulses once per valve, so ManualBalance, RunCalibration and the weights file all follow the bursts as they fire; it stops the workflow if a valve is not a RewardValve in rig.yml or the samples are at different pulseGapMs. Fails at startup if the machine has no configuration directory.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
@@ -35,17 +35,6 @@
             </Expression>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:ReadLabRig.bonsai">
               <ConfigRoot>C:\Coen-Lab-Local\RigConfigs</ConfigRoot>
-            </Expression>
-            <Expression xsi:type="MemberSelector">
-              <Selector>BehaviorBoard</Selector>
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="orc:RigDevice">
-                <orc:Name>BehaviorBoard-Main</orc:Name>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="rx:AsyncSubject">
-              <Name>BehaviorBoard-Main</Name>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
               <Name>RigConfigs</Name>
@@ -91,21 +80,21 @@
             <Expression xsi:type="rx:BehaviorSubject" TypeArguments="sys:Boolean">
               <rx:Name>SpoutsReady</rx:Name>
             </Expression>
+            <Expression xsi:type="rx:BehaviorSubject" TypeArguments="sys:String">
+              <rx:Name>PathPrefix</rx:Name>
+            </Expression>
           </Nodes>
           <Edges>
             <Edge From="0" To="1" Label="Source1" />
-            <Edge From="1" To="2" Label="Source1" />
             <Edge From="2" To="3" Label="Source1" />
             <Edge From="3" To="4" Label="Source1" />
             <Edge From="5" To="6" Label="Source1" />
             <Edge From="6" To="7" Label="Source1" />
-            <Edge From="8" To="9" Label="Source1" />
-            <Edge From="9" To="10" Label="Source1" />
+            <Edge From="7" To="8" Label="Source1" />
+            <Edge From="4" To="8" Label="Source2" />
+            <Edge From="8" To="10" Label="Source1" />
+            <Edge From="9" To="10" Label="Source2" />
             <Edge From="10" To="11" Label="Source1" />
-            <Edge From="7" To="11" Label="Source2" />
-            <Edge From="11" To="13" Label="Source1" />
-            <Edge From="12" To="13" Label="Source2" />
-            <Edge From="13" To="14" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
@@ -140,6 +129,13 @@
                   <Description>The shortest pulse width calibrated, in ms, set per rig on rig-control's Calibrations page: at Go every width of config\valve-calibration.yml is scaled so its smallest is this (the largest 5 times it), the pulses as written (ScaleWidths).</Description>
                   <Minimum>5</Minimum>
                   <Maximum>100</Maximum>
+                </Parameter>
+                <Parameter>
+                  <Name>SpoutStepSize</Name>
+                  <Value />
+                  <Description>Motor steps each spout nudge moves, taken live by the lick spout stage (OpenRigs.Devices LickSpoutStage, on a rig with one). A calibration sends no nudge; the stage shows its default here at Start.</Description>
+                  <Minimum>1</Minimum>
+                  <WholeNumber>true</WholeNumber>
                 </Parameter>
               </Parameters>
               <Commands>
@@ -191,45 +187,70 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Hardware</Name>
-        <Description>The behavior board on rig.yml's port (BehaviorBoard-Main), with the PulseController pulsing its RewardValve lines and no other: its TriggerCalibratedPulse fires one pulse of a given width on a line, as in a session. BehaviorBoard.Timestamps publishes the board's Harp clock as Timestamp, which every burst is timed on (OpenRigs.Core FirePulses, at the procedure's pulseGapMs). The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. Ready 1 s after the board's first event, once the PulseController's setup has gone out. The calibration camera (Pip, 10 Nov 2026) is a USB camera plugged in on the balance, a different one on each rig and in no rig.yml: OpenRigs.Video UsbCamera opens the first that is not the rig's own (none of rig.yml's camera serials, no FLIR or Basler vendor id), free-running, and publishes its frames as Camera-Temporary.Data, which LiveView streams as a temporary device and Snapshots saves; none plugged in stops the workflow at start, saying so. Nothing is recorded. Its exposure is the controller's CameraExposureUs parameter, the rig cameras' name and unit (Pip, 10 Nov 2026: one setting for one meaning), taken at the nearest power of two of a second the camera allows: it starts at 15625 (1/64 s) and takes each value the controller sets (OnParameterSet) straight to the open camera, so rig-control's Calibrations page can make the balance's display readable; ParameterDefault shows the starting value 1 s in, once the controller is up. No gain: a USB camera's has no unit common to its models. No camera trigger runs, so DO0 and DO1 stay free.</Description>
+        <Description>The rig's pieces, as in a session (lib-open-rigs building-blocks): the Ready gate (ReadyGate), the behavior board BehaviorBoard-Main on rig.yml's port (BehaviorBoard, which clears any ZapitTrigger line however the workflow stops), its clock (ClockFromBoard: the board's clock set to UTC, Timestamp and HarpClockSet) and its pulsed lines (PulseOutputs: rig.yml's outputPulseEnable without the ZapitTrigger line, stopping at Start if a RewardValve line is not among them; TriggerCalibratedPulse fires one pulse of a given width on a line). PulseClock is the board's own time from its analog data events (1 kHz), which every burst is timed on (OpenRigs.Core FirePulses, at the procedure's pulseGapMs), as before the device pieces: ClockFromBoard's Timestamp ticks once a second, at the heartbeat, too coarse for 80 ms gaps. Ready (ReadyGate) once the clock is set and CalibrationReady has come: 1 s after the board's first event, once PulseOutputs' setup (pulse mode on its lines, 0.5 s after that event) has gone out, so a Go cannot fire a pulse on a line not yet in pulse mode, and the spouts are in (SpoutsReady, Extensions\Spouts.bonsai). The balance is read by eye (OpenRigs.Devices ManualBalance): from Go it asks for each weight in the weigh metric and publishes the one given with the Weight command on BalanceReading. The calibration camera (Pip, 10 Nov 2026) is a USB camera plugged in on the balance, a different one on each rig and in no rig.yml: OpenRigs.Video UsbCamera opens the first that is not the rig's own (none of rig.yml's camera serials, no FLIR or Basler vendor id), free-running, and publishes its frames as Camera-Temporary.Data, which LiveView streams as a temporary device and Snapshots saves; none plugged in stops the workflow at start, saying so. Nothing is recorded. Its exposure is the controller's CameraExposureUs parameter, the rig cameras' name and unit (Pip, 10 Nov 2026: one setting for one meaning), taken at the nearest power of two of a second the camera allows: it starts at 15625 (1/64 s) and takes each value the controller sets (OnParameterSet) straight to the open camera, so rig-control's Calibrations page can make the balance's display readable; ParameterDefault shows the starting value 1 s in, once the controller is up. No gain: a USB camera's has no unit common to its models. No camera trigger runs, so DO0 and DO1 stay free.</Description>
         <Workflow>
           <Nodes>
-            <Expression xsi:type="SubscribeSubject">
-              <Name>BehaviorBoard-Main</Name>
-            </Expression>
-            <Expression xsi:type="PropertyMapping">
-              <PropertyMappings>
-                <Property Name="PortName" Selector="Settings.PortName" />
-              </PropertyMappings>
+            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:ReadyGate.bonsai">
+              <ReadyWaitsFor>HarpClockSet, CalibrationReady</ReadyWaitsFor>
             </Expression>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.BehaviorBoard.bonsai">
+              <Name>BehaviorBoard-Main</Name>
               <CommandsSubjectName>BehaviorBoard-Main.Commands</CommandsSubjectName>
-              <PortName>UNMAPPED</PortName>
-              <DumpRegisters>true</DumpRegisters>
-              <Heartbeat>Enabled</Heartbeat>
-              <EventsSubjectName>BehaviorBoard-Main.Data</EventsSubjectName>
+              <DataSubjectName>BehaviorBoard-Main.Data</DataSubjectName>
+            </Expression>
+            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.ClockFromBoard.bonsai">
+              <Board>BehaviorBoard-Main</Board>
+              <BoardDataSubjectName>BehaviorBoard-Main.Data</BoardDataSubjectName>
+              <BoardCommandsSubjectName>BehaviorBoard-Main.Commands</BoardCommandsSubjectName>
+            </Expression>
+            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.PulseOutputs.bonsai">
+              <Board>BehaviorBoard-Main</Board>
+              <BoardCommandsSubjectName>BehaviorBoard-Main.Commands</BoardCommandsSubjectName>
+              <BoardDataSubjectName>BehaviorBoard-Main.Data</BoardDataSubjectName>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
-              <Name>RewardValveLines</Name>
+              <Name>BehaviorBoard-Main.Data</Name>
             </Expression>
-            <Expression xsi:type="PropertyMapping">
-              <PropertyMappings>
-                <Property Name="OutputPulseEnable" />
-              </PropertyMappings>
+            <Expression xsi:type="beh:Parse">
+              <harp:Register xsi:type="beh:TimestampedAnalogData" />
             </Expression>
-            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.PulseController.bonsai">
-              <BehaviorCommandsSubjectName>BehaviorBoard-Main.Commands</BehaviorCommandsSubjectName>
-              <OutputPulseEnable>DO1 DO2</OutputPulseEnable>
-              <PulseDO1>10</PulseDO1>
-              <PulseDO2>10</PulseDO2>
-              <PulseDO3>10</PulseDO3>
-              <BehaviorEventsSubjectName>BehaviorBoard-Main.Data</BehaviorEventsSubjectName>
-              <TriggerPulseSubjectName>TriggerPulse</TriggerPulseSubjectName>
-              <TriggerCalibratedPulseSubjectName>TriggerCalibratedPulse</TriggerCalibratedPulseSubjectName>
+            <Expression xsi:type="MemberSelector">
+              <Selector>Seconds</Selector>
             </Expression>
-            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.Timestamps.bonsai">
-              <EventsSubjectName>BehaviorBoard-Main.Data</EventsSubjectName>
-              <CommandsSubjectName>BehaviorBoard-Main.Commands</CommandsSubjectName>
+            <Expression xsi:type="rx:BehaviorSubject">
+              <Name>PulseClock</Name>
+            </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>BehaviorBoard-Main.Data</Name>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:Take">
+                <rx:Count>1</rx:Count>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:Delay">
+                <rx:DueTime>PT1S</rx:DueTime>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>SpoutsReady</Name>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:Zip" />
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:Take">
+                <rx:Count>1</rx:Count>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="orc:AnnounceStage">
+                <orc:Stage>CalibrationReady</orc:Stage>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="MulticastSubject">
+              <Name>ReadyStages</Name>
             </Expression>
             <Expression xsi:type="rx:PublishSubject" TypeArguments="orc:WeightMeasurement">
               <rx:Name>BalanceReading</rx:Name>
@@ -239,7 +260,7 @@
             </Expression>
             <Expression xsi:type="rx:SelectMany">
               <Name>ManualBalance</Name>
-              <Description>A balance read by eye, OpenRigs.Devices ManualBalance. From Go it follows the procedure's bursts by their pulses, on BurstPulses (never a drip's: drips fire on TriggerCalibratedPulse alone, so its count of bursts holds), and, once each has landed, asks for a weight in the weigh metric; the next weight typed with the Weight command is forwarded to BalanceReading as that burst's reading. Ready 1 s after the board's first event: the PulseController sends its setup (pulse mode on the RewardValve lines) 0.5 s after it, and a Go before that would fire the first pulse with the line not yet in pulse mode.</Description>
+              <Description>A balance read by eye, OpenRigs.Devices ManualBalance. From Go it follows the procedure's bursts by their pulses, on BurstPulses (never a drip's: drips fire on TriggerCalibratedPulse alone, so its count of bursts holds), and, once each has landed, asks for a weight in the weigh metric; the next weight typed with the Weight command is forwarded to BalanceReading as that burst's reading.</Description>
               <Workflow>
                 <Nodes>
                   <Expression xsi:type="WorkflowInput">
@@ -284,36 +305,7 @@
                   <Expression xsi:type="MulticastSubject">
                     <Name>BalanceReading</Name>
                   </Expression>
-                  <Expression xsi:type="SubscribeSubject">
-                    <Name>BehaviorBoard-Main.Data</Name>
-                  </Expression>
-                  <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="rx:Take">
-                      <rx:Count>1</rx:Count>
-                    </Combinator>
-                  </Expression>
-                  <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="orcl:ReportPhase">
-                      <orcl:Phase>Ready</orcl:Phase>
-                    </Combinator>
-                  </Expression>
                   <Expression xsi:type="WorkflowOutput" />
-                  <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="rx:Delay">
-                      <rx:DueTime>PT1S</rx:DueTime>
-                    </Combinator>
-                  </Expression>
-                  <Expression xsi:type="SubscribeSubject">
-                    <Name>SpoutsReady</Name>
-                  </Expression>
-                  <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="rx:Zip" />
-                  </Expression>
-                  <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="rx:Take">
-                      <rx:Count>1</rx:Count>
-                    </Combinator>
-                  </Expression>
                   <Expression xsi:type="Combinator">
                     <Combinator xsi:type="orcl:ParameterValue">
                       <orcl:Name>MinPulseWidthMs</orcl:Name>
@@ -323,20 +315,14 @@
                 <Edges>
                   <Edge From="1" To="2" Label="Source1" />
                   <Edge From="2" To="3" Label="Source1" />
-                  <Edge From="4" To="20" Label="Source1" />
-                  <Edge From="20" To="6" Label="Source1" />
+                  <Edge From="4" To="13" Label="Source1" />
+                  <Edge From="13" To="6" Label="Source1" />
                   <Edge From="5" To="6" Label="Source2" />
                   <Edge From="6" To="7" Label="Source1" />
                   <Edge From="7" To="8" Label="Source1" />
                   <Edge From="8" To="9" Label="Source1" />
                   <Edge From="10" To="11" Label="Source1" />
-                  <Edge From="12" To="13" Label="Source1" />
-                  <Edge From="13" To="16" Label="Source1" />
-                  <Edge From="16" To="18" Label="Source1" />
-                  <Edge From="17" To="18" Label="Source2" />
-                  <Edge From="18" To="19" Label="Source1" />
-                  <Edge From="19" To="14" Label="Source1" />
-                  <Edge From="11" To="15" Label="Source1" />
+                  <Edge From="11" To="12" Label="Source1" />
                 </Edges>
               </Workflow>
             </Expression>
@@ -421,7 +407,7 @@
               </PropertyMappings>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
-              <Name>Timestamp</Name>
+              <Name>PulseClock</Name>
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="orc:FirePulses">
@@ -436,30 +422,36 @@
             </Expression>
           </Nodes>
           <Edges>
-            <Edge From="0" To="1" Label="Source1" />
-            <Edge From="1" To="2" Label="Source1" />
-            <Edge From="3" To="4" Label="Source1" />
             <Edge From="4" To="5" Label="Source1" />
+            <Edge From="5" To="6" Label="Source1" />
+            <Edge From="6" To="7" Label="Source1" />
             <Edge From="8" To="9" Label="Source1" />
-            <Edge From="10" To="11" Label="Source1" />
-            <Edge From="13" To="17" Label="Source1" />
+            <Edge From="9" To="10" Label="Source1" />
+            <Edge From="10" To="12" Label="Source1" />
+            <Edge From="11" To="12" Label="Source2" />
+            <Edge From="12" To="13" Label="Source1" />
+            <Edge From="13" To="14" Label="Source1" />
             <Edge From="14" To="15" Label="Source1" />
-            <Edge From="15" To="16" Label="Source1" />
-            <Edge From="16" To="17" Label="Source2" />
             <Edge From="17" To="18" Label="Source1" />
-            <Edge From="18" To="10" Label="Source1" />
-            <Edge From="13" To="19" Label="Source1" />
             <Edge From="19" To="20" Label="Source1" />
-            <Edge From="21" To="22" Label="Source1" />
-            <Edge From="22" To="24" Label="Source1" />
-            <Edge From="23" To="24" Label="Source2" />
-            <Edge From="24" To="26" Label="Source1" />
+            <Edge From="22" To="26" Label="Source1" />
+            <Edge From="23" To="24" Label="Source1" />
+            <Edge From="24" To="25" Label="Source1" />
             <Edge From="25" To="26" Label="Source2" />
             <Edge From="26" To="27" Label="Source1" />
-            <Edge From="27" To="28" Label="Source1" />
-            <Edge From="28" To="30" Label="Source1" />
-            <Edge From="29" To="30" Label="Source2" />
+            <Edge From="27" To="19" Label="Source1" />
+            <Edge From="22" To="28" Label="Source1" />
+            <Edge From="28" To="29" Label="Source1" />
             <Edge From="30" To="31" Label="Source1" />
+            <Edge From="31" To="33" Label="Source1" />
+            <Edge From="32" To="33" Label="Source2" />
+            <Edge From="33" To="35" Label="Source1" />
+            <Edge From="34" To="35" Label="Source2" />
+            <Edge From="35" To="36" Label="Source1" />
+            <Edge From="36" To="37" Label="Source1" />
+            <Edge From="37" To="39" Label="Source1" />
+            <Edge From="38" To="39" Label="Source2" />
+            <Edge From="39" To="40" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
@@ -638,7 +630,7 @@
                           </PropertyMappings>
                         </Expression>
                         <Expression xsi:type="SubscribeSubject">
-                          <Name>Timestamp</Name>
+                          <Name>PulseClock</Name>
                         </Expression>
                         <Expression xsi:type="Combinator">
                           <Combinator xsi:type="orc:FirePulses">
@@ -657,7 +649,7 @@
                           </PropertyMappings>
                         </Expression>
                         <Expression xsi:type="SubscribeSubject">
-                          <Name>Timestamp</Name>
+                          <Name>PulseClock</Name>
                         </Expression>
                         <Expression xsi:type="Combinator">
                           <Combinator xsi:type="orc:FirePulses">
@@ -769,7 +761,7 @@
                           </PropertyMappings>
                         </Expression>
                         <Expression xsi:type="SubscribeSubject">
-                          <Name>Timestamp</Name>
+                          <Name>PulseClock</Name>
                         </Expression>
                         <Expression xsi:type="Combinator">
                           <Combinator xsi:type="orc:FirePulses">
@@ -788,7 +780,7 @@
                           </PropertyMappings>
                         </Expression>
                         <Expression xsi:type="SubscribeSubject">
-                          <Name>Timestamp</Name>
+                          <Name>PulseClock</Name>
                         </Expression>
                         <Expression xsi:type="Combinator">
                           <Combinator xsi:type="orc:FirePulses">
