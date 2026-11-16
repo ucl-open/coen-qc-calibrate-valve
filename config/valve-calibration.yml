@@ -9,14 +9,14 @@
 # the weight and waits up to weighTimeoutSeconds for rig-control to send it, read off the camera or typed,
 # taking that one reading (settleWindow 1).
 # Each sample fires its `pulses` pulses of `pulseWidthMs`, then weighs the gain. Seven widths, closer
-# together at the short end: 20, 25, 30, 40, 50, 70 and 100 ms, each measured twice (three times until 9 Nov 2026, Pip: "just do 2 repeats, not 3, for now"), in rounds of
+# together at the short end: 20, 25, 30, 40, 50, 70 and 100 ms, each measured twice (Pip, 9 Nov 2026: "just do 2 repeats, not 3, for now"), in rounds of
 # all seven, each round shuffled anew every run (Pip, 11 Nov 2026: "Shuffle every round"; the order
 # below is ignored, round k being each width's k-th sample), so drift over the run falls on
 # every width alike; each burst is a point of the curve, so a line fitted to it (LinearFit) averages the rounds. Every burst delivers about what 600
 # pulses at 20 ms do, taking volume as proportional to width: 600 at 20 ms, 480 at 25, 400 at 30,
 # 300 at 40, 240 at 50, 171 at 70 and 120 at 100 (Pip, 6 Nov 2026: 500 at 20 ms; 9 Nov 2026: "increase
 # delivery total volume by 25% (to a rounded number near that)", so +20%). pulseGapMs is the
-# off-to-on time between pulses, 80 ms (63 until 11 Nov 2026, Pip: "increase the time between
+# off-to-on time between pulses, 80 ms (Pip, 11 Nov 2026: "increase the time between
 # clicks"; the valves over-delivered 12 to 27% against their curves). Every sample takes the same
 # one: the calibration file records it and a rig fires its rewards at it, so the workflow refuses
 # samples at different gaps. Pulses are timed on the behavior board's Harp clock (OpenRigs.Core

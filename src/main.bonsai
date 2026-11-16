@@ -372,7 +372,7 @@
         </Workflow>
       </Expression>
       <Expression xsi:type="ExternalizedMapping">
-        <Property Name="FileName" DisplayName="FileName" Description="The run's file name without extension, such as valve-DO1, or valve-all for every valve together: the weights go to calibration\&lt;FileName&gt;-weights.csv, and rig-control writes each valve's curve from them to its own calibration\*.json. rig-control gives it at launch." />
+        <Property Name="FileName" DisplayName="FileName" Description="The run's file name without extension, such as RewardValve-Left (the valve's piece name, never its line's), or valve-all for every valve together: the weights go to calibration\&lt;FileName&gt;-weights.csv, and rig-control writes each valve's curve from them to its own calibration\*.json. rig-control gives it at launch." />
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Calibration</Name>
@@ -384,7 +384,7 @@
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="StringProperty">
-                <Value>valve-DO1</Value>
+                <Value>RewardValve-Left</Value>
               </Combinator>
             </Expression>
             <Expression xsi:type="SubscribeSubject">

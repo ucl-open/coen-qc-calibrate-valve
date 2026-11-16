@@ -95,6 +95,18 @@ def test_the_pulsed_lines_are_the_valves(path):
     assert enabled == set(rig.reward_valve_lines())
 
 
+@pytest.mark.parametrize("path", RIGS, ids=lambda path: path.name)
+def test_each_valve_s_calibration_is_named_by_the_valve(path):
+    # Pip, 16 Nov 2026: calibration/RewardValve-<Name>.json, the valve's piece name, never its line (valve-DO1).
+    rig = LabRig.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    outputs = yaml.safe_load(path.read_text(encoding="utf-8"))["behaviorBoard"]["main"]["pulseController"]["outputs"]
+    assert {piece: outputs[line]["artefact"] for piece, (_, line) in rig.reward_valves().items()} ==         {piece: f"calibration/{piece}.json" for piece in rig.reward_valves()}
+
+
+def test_the_file_name_by_default_is_a_valve_s():
+    assert "<Value>RewardValve-Left</Value>" in (ROOT / "src" / "main.bonsai").read_text(encoding="utf-8")
+
+
 def test_every_pulse_is_timed_on_the_rig_s_clock(wf):
     firings = 0
     for nodes, edges in lint._scopes(wf.root):
@@ -123,7 +135,7 @@ def test_no_device_opened_by_hand(wf):
 
 def test_no_experiment_folder(wf):
     # NoExperimentFolder's PathPrefix is never published, so no piece's log starts; its SubjectId is the include's default
-    # (_no-experiment_), no mouse's, so the spouts go to rig.yml's lickSpoutDefaultPosition (Spouts.bonsai declared it until 16 Nov 2026).
+    # (_no-experiment_), no mouse's, so the spouts go to rig.yml's lickSpoutDefaultPosition.
     assert lint.no_experiment_folder_problems(wf) == []
     (node,) = [n for n in wf.root.iter(W + "Expression") if n.get("Path") == lint.NO_EXPERIMENT_FOLDER]
     assert node.find(W + "SubjectId") is None
@@ -151,7 +163,7 @@ def test_the_balance_camera_is_lib_s_piece():
 
 
 def test_test_pulses_stop_at_go():
-    # A Test train still firing at Go stops there, not alongside the priming (audit QF15, 16 Nov 2026): FirePulses
+    # A Test train still firing at Go stops there, not alongside the priming: FirePulses
     # finishes a train whose input has completed, so the cut is after it, on its pulses to BehaviorBoard-Main.TriggerCalibratedPulse.
     group = next(e for e in lint.Workflow(ROOT, "main.bonsai").root.iter(W + "Expression") if e.findtext(W + "Name") == "Hardware")
     nodes, edges = lint.nodes_and_edges(group.find(W + "Workflow"))
@@ -165,8 +177,7 @@ def test_test_pulses_stop_at_go():
 
 
 def test_experiment_control_is_written_as_in_every_lab_workflow(wf):
-    # SubjectId, SessionId, LaunchId, ControlEndpoint, Parameters and Commands, as the preflight and the projector write
-    # it (audit QF16, 16 Nov 2026).
+    # SubjectId, SessionId, LaunchId, ControlEndpoint, Parameters and Commands, as the preflight and the projector write it.
     (node,) = [n for n in wf.root.iter(W + "Expression") if n.get("Path") == "OpenRigs.Control:ExperimentControl.bonsai"]
     assert [c.tag.replace(W, "") for c in node] == ["SubjectId", "SessionId", "LaunchId", "ControlEndpoint", "Parameters", "Commands"]
 

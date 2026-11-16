@@ -56,6 +56,5 @@ def test_the_drivers_are_the_pieces_own():
 
 
 def test_a_calibration_is_no_mouse_so_the_spouts_go_to_the_default_position():
-    # SubjectId is each workflow's NoExperimentFolder's default, _no-experiment_ (tests\test_workflow.py); this file
-    # declared its own until 16 Nov 2026.
+    # SubjectId is each workflow's NoExperimentFolder's default, _no-experiment_ (tests\test_workflow.py), never this file's.
     assert not [n for n in SPOUTS.iter(f"{W}Expression") if (n.get(XSI) or "").startswith("rx:") and _name(n) == "SubjectId"]
