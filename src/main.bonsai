@@ -28,7 +28,6 @@
         <ConfigRoot>C:\Coen-Lab-Local\RigConfigs</ConfigRoot>
       </Expression>
       <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Logging:NoExperimentFolder.bonsai">
-        <SubjectId>_valve-calibration_</SubjectId>
       </Expression>
       <Expression xsi:type="ExternalizedMapping">
         <Property Name="Channel" DisplayName="Channel" Description="The behavior board line to calibrate, 1 to 3 (DO1 to DO3), when Channels is empty: one rig.yml lists in outputPulseEnable. rig-control gives it at launch." />

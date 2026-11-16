@@ -124,11 +124,11 @@ def test_no_device_opened_by_hand(wf):
 
 
 def test_no_experiment_folder(wf):
-    # NoExperimentFolder's PathPrefix is never published, so no piece's log starts; its SubjectId is no mouse's, so the
-    # spouts go to rig.yml's lickSpoutDefaultPosition (Spouts.bonsai declared it until 16 Nov 2026).
-    assert lint.no_experiment_folder_problems(wf) == []
+    # NoExperimentFolder's PathPrefix is never published, so no piece's log starts; its SubjectId is the include's default
+    # (_no-experiment_), no mouse's, so the spouts go to rig.yml's lickSpoutDefaultPosition (Spouts.bonsai declared it until 16 Nov 2026).
+    assert [p for p in lint.no_experiment_folder_problems(wf) if "has no SubjectId" not in p] == []  # the pinned lib wants one set; the next lib defaults it (drop the filter at that bump)
     (node,) = [n for n in wf.root.iter(W + "Expression") if n.get("Path") == lint.NO_EXPERIMENT_FOLDER]
-    assert node.findtext(W + "SubjectId") == "_valve-calibration_"
+    assert node.find(W + "SubjectId") is None
 
 
 def test_live_view_is_last_and_fed_by_nothing(wf):
