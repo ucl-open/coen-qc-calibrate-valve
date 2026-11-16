@@ -6,8 +6,7 @@ using System.Reactive.Linq;
 
 // Water delivered at a reward's pulse width (Pip, 11 Nov 2026: "select a reward size ... and also offer
 // to deliver 1 ml of water with clicks of that length"): rig-control's Calibrations page works out
-// the width and the pulses from the valve's curve and launches deliver-dome.bonsai or
-// deliver-box.bonsai (by the rig's kind) with them and the
+// the width and the pulses from the valve's curve and launches deliver.bonsai with them and the
 // curve's pulseGapMs, so the water is fired as the calibration fired it (OpenRigs.Core FirePulses).
 // Compiled by Bonsai under C# 5.
 namespace CoenQcCalibrateValve

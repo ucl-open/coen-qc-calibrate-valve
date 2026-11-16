@@ -1,4 +1,4 @@
-# Checks src\Extensions without the rig: the lab rig model's valves (tests\rigs: a box, an arena and a
+# Checks src\Extensions without the rig: the lab rig model's valves (tests\rigs: a board-only and a
 # dome rig.yml, and the refusals), the valves parsed from Channels, the procedure expanded over them
 # (each sample once per valve, in turn; priming once per valve; one pulseGapMs), each burst's
 # PulseTrain for FirePulses, and the spouts' targets.
@@ -17,7 +17,7 @@ function Check($name, $ok) {
 function Refused($block) { try { $null = & $block; $false } catch { $true } }
 function Train($t) { "$($t.Pulses)x$($t.PulseWidthMs)@DO$($t.Line)/$($t.PulseGapMs)" }
 
-# The rig model: lib-open-rigs' LabRig (OpenRigs.Devices ReadLabRig) reads a box, an arena and a dome
+# The rig model: lib-open-rigs' LabRig (OpenRigs.Devices ReadLabRig) reads a board-only and a dome
 # rig.yml; the valves are the lines its wiring gives a RewardValve (OpenRigs.Devices WiredOutputs).
 $rx = [System.Reactive.Linq.Observable]
 function Obs($type, $value) { ($rx.GetMethods() | Where-Object { $_.Name -eq 'Return' -and $_.GetParameters().Count -eq 1 })[0].MakeGenericMethod($type).Invoke($null, @($value)) }
@@ -26,15 +26,14 @@ $deserialize = [OpenRigs.Devices.Rigs.DeserializeFromYaml].GetMethod('Process', 
 function Rig($text) { (Items ([OpenRigs.Devices.Rigs.LabRig]) ($deserialize.Invoke($null, @((Obs ([string]) $text)))))[0] }
 function RigFile($name) { Rig ([IO.File]::ReadAllText((Join-Path $rigs $name))) }
 function Lines($rig) { [OpenRigs.Devices.WiredOutputs]::Find($rig, 'BehaviorBoard-Main', 'RewardValve') }
-$box = RigFile 'box.yml'
-Check 'box: one valve, no stage' (("$(Lines $box)" -eq 'DO1') -and $null -eq $box.StepperDriver)
-$arena = Lines (RigFile 'arena.yml')
-Check 'arena: two valves' ("$arena" -eq 'DO1, DO2')
+$boardRig = RigFile 'board.yml'
+$board = Lines $boardRig
+Check 'board only: two valves, not the photodiode line, no stage' (("$board" -eq 'DO1, DO2') -and $null -eq $boardRig.StepperDriver)
 $dome = RigFile 'dome.yml'
 Check 'dome: two valves, not the Zapit line' ("$(Lines $dome)" -eq 'DO1, DO2')
 Check 'dome: the stage on stepperDriver a and b' ($dome.StepperDriver.Count -eq 2 -and $dome.StepperDriver['a'].PortName -eq 'COM5' -and $dome.StepperDriver['b'].PortName -eq 'COM6')
 Check 'dome: its timestamp generator read (Harp.TimestampGeneratorGen3 0.1.1)' ("$($dome.TimestampGeneratorGen3['main'].TimerFrequency)" -eq 'Timer1000Hz')
-Check 'a valve wiring does not give is refused' (Refused { [CoenQcCalibrateValve.Valves]::Check($arena, [int[]]@(3)) })
+Check 'a valve wiring does not give is refused' (Refused { [CoenQcCalibrateValve.Valves]::Check($board, [int[]]@(3)) })
 Check 'a wired valve passes' (-not (Refused { [CoenQcCalibrateValve.Valves]::Check((Lines $dome), [int[]]@(2, 1)) }))
 $refusals = [ordered]@{
     'no RewardValve (a box today)' = "behaviorBoard:`n  main:`n    portName: COM3`n    pulseController: null`n"
@@ -145,11 +144,11 @@ $weighed = [Tuple]::Create($inner, [int]2)
 $row = (Items ([CoenQcCalibrateValve.ValveWeighing]) ((New-Object CoenQcCalibrateValve.ValveWeighingRow).Process((Obs $weighed.GetType() $weighed))))[0]
 Check 'a weights row: its drips in its pulses, its valve and its gap' (($row.pulses -eq 252) -and ($row.channel -eq 2) -and ($row.pulseGapMs -eq 80) -and ($row.beforeG -eq 20.1))
 
-# Delivering water (deliver-dome.bonsai, deliver-box.bonsai) at the calibration file's gap, on a wired valve only.
+# Delivering water (deliver.bonsai) at the calibration file's gap, on a wired valve only.
 function Deliver($channel, $gap) {
     $d = New-Object CoenQcCalibrateValve.DeliverTrain
     $d.Channel = $channel; $d.PulseWidthMs = 30; $d.Pulses = 10; $d.PulseGapMs = $gap
-    $go = [Tuple]::Create([int]0, $arena)
+    $go = [Tuple]::Create([int]0, $board)
     (Items $train ($d.Process((Obs $go.GetType() $go))))[0]
 }
 Check "deliver: its pulses on its valve at its gap ($(Train (Deliver 2 80)))" ((Train (Deliver 2 80)) -eq '10x30@DO2/80')

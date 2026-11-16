@@ -1,6 +1,6 @@
-# An arena's rig.yml as the valve calibration reads it: a behavior board with two reward valves
-# and no lick spout stage. Made up from the plan (13 Nov 2026): no arena rig exists yet, so
-# replace it with the first real arena's rig.yml.
+# A rig.yml with a behavior board and nothing else, as the valve calibration reads it: two reward
+# valves and a photodiode line, no timestamp generator and no lick spout stage. The workflows run
+# on any board with RewardValve wiring; dome.yml is the rig with everything.
 behaviorBoard:
   main:
     portName: COM4
@@ -15,5 +15,4 @@ behaviorBoard:
       DO1: { device: RewardValve, side: left }
       DO2: { device: RewardValve, side: right }
       DO3: { device: Photodiode }
-rigId: A1
 rootPath: C:\Coen-Lab-Local\Acquired-Data

@@ -107,5 +107,6 @@ def test_a_test_rig_wires_reward_valves_on_pulse_lines(path):
     assert valves and set(valves) <= {"DO1", "DO2", "DO3"}
 
 
-def test_the_three_test_rigs_are_there():
-    assert [path.name for path in RIGS] == ["arena.yml", "box.yml", "dome.yml"]
+def test_the_two_test_rigs_are_there():
+    # A dome with everything and a rig with a behavior board alone: the workflows run on any board with RewardValve wiring.
+    assert [path.name for path in RIGS] == ["board.yml", "dome.yml"]

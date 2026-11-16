@@ -10,7 +10,7 @@
                  xmlns:sys="clr-namespace:System;assembly=mscorlib"
                  xmlns:lv="clr-namespace:OpenRigs.LiveView;assembly=OpenRigs.LiveView"
                  xmlns="https://bonsai-rx.org/2018/workflow">
-  <Description>Delivers water on one of a behaviour box's valves at a reward's pulse width (Pip, 11 Nov 2026), so a valve's calibration can be checked by weighing what it gives: Pulses pulses of PulseWidthMs on Channel at PulseGapMs, fired on the rig's Harp clock as the calibration fires them (OpenRigs.Core FirePulses). rig-control's Calibrations page works out the width and the pulses from the valve's curve (1 ml at the reward size) and gives the curve's pulseGapMs; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml, read into the lab rig model (OpenRigs.Devices ReadLabRig). The hardware is the lab's device pieces, as in a session (OpenRigs.Devices ReadyGate, BehaviorBoard, ClockFromBoard, PulseOutputs, LickSpoutStage); a delivery has no experiment folder (OpenRigs.Logging NoExperimentFolder), so no piece logs. On a rig with a lick spout stage the spouts go to rig.yml's lickSpoutDefaultPosition first and out after (Extensions\Spouts.bonsai). Ready once the rig's clock is set, its pulse setup has gone out and the spouts are in; Go fires the pulses, reporting each as the delivered metric; Finished once the last has closed. Nothing is written.</Description>
+  <Description>Delivers water on one of a rig's valves at a reward's pulse width (Pip, 11 Nov 2026), so a valve's calibration can be checked by weighing what it gives: Pulses pulses of PulseWidthMs on Channel at PulseGapMs, fired on the board's Harp time as the calibration fires them (OpenRigs.Core FirePulses). It sets no clock: it reads the behavior board's time as it runs (ClockFromBoard, SetClock false), which on a dome follows the timestamp generator and elsewhere is the board's own, and times the pulses only against each other on it. rig-control's Calibrations page works out the width and the pulses from the valve's curve (1 ml at the reward size) and gives the curve's pulseGapMs; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml, read into the lab rig model (OpenRigs.Devices ReadLabRig). The hardware is the lab's device pieces, as in a session (OpenRigs.Devices ReadyGate, BehaviorBoard, ClockFromBoard, PulseOutputs, LickSpoutStage); a delivery has no experiment folder (OpenRigs.Logging NoExperimentFolder), so no piece logs. On a rig with a lick spout stage the spouts go to rig.yml's lickSpoutDefaultPosition first and out after (Extensions\Spouts.bonsai). Ready once the board's time is read, its pulse setup has gone out and the spouts are in; Go fires the pulses, reporting each as the delivered metric; Finished once the last has closed. Nothing is written.</Description>
   <Workflow>
     <Nodes>
       <Expression xsi:type="ExternalizedMapping">
@@ -87,11 +87,11 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Hardware</Name>
-        <Description>The rig's pieces, as in a session (lib-open-rigs building-blocks): the Ready gate (ReadyGate), the behavior board BehaviorBoard-Main on rig.yml's port (BehaviorBoard, which clears any ZapitTrigger line however the workflow stops), its clock (ClockFromBoard: Timestamp, the board's own time from its analog data events, 1 kHz, which the pulses are timed on, as before the device pieces) and its pulsed lines (PulseOutputs: rig.yml's outputPulseEnable without the ZapitTrigger line, stopping at Start if a RewardValve line is not among them; TriggerCalibratedPulse fires one pulse of a given width on a line). Ready (ReadyGate) once the clock is set (PieceStages) and DeliveryReady, this workflow's own stage (WorkflowStages), has come: 1 s after the board's first event, once PulseOutputs' setup has gone out, and once the spouts are in (SpoutsReady).</Description>
+        <Description>The rig's pieces, as in a session (lib-open-rigs building-blocks): the Ready gate (ReadyGate), the behavior board BehaviorBoard-Main on rig.yml's port (BehaviorBoard, which clears any ZapitTrigger line however the workflow stops), its time, read and never set (ClockFromBoard, SetClock false: Timestamp, the board's time from its analog data events, 1 kHz, as it runs, following the timestamp generator on a dome and its own elsewhere, which the pulses are timed on relative to each other, as before the device pieces) and its pulsed lines (PulseOutputs: rig.yml's outputPulseEnable without the ZapitTrigger line, stopping at Start if a RewardValve line is not among them; TriggerCalibratedPulse fires one pulse of a given width on a line). Ready (ReadyGate) once the board's time is read (PieceStages, HarpClockRead, at its first heartbeat) and DeliveryReady, this workflow's own stage (WorkflowStages), has come: 1 s after the board's first event, once PulseOutputs' setup has gone out, and once the spouts are in (SpoutsReady).</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:ReadyGate.bonsai">
-              <PieceStages>HarpClockSet</PieceStages>
+              <PieceStages>HarpClockRead</PieceStages>
               <WorkflowStages>DeliveryReady</WorkflowStages>
             </Expression>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.BehaviorBoard.bonsai">
@@ -101,6 +101,7 @@
             </Expression>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.ClockFromBoard.bonsai">
               <Board>BehaviorBoard-Main</Board>
+              <SetClock>false</SetClock>
               <BoardDataSubjectName>BehaviorBoard-Main.Data</BoardDataSubjectName>
               <BoardCommandsSubjectName>BehaviorBoard-Main.Commands</BoardCommandsSubjectName>
             </Expression>
