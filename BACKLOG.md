@@ -26,3 +26,7 @@ History is in `git log`.
 
 - Calibrate and deliver not merged: they are two jobs.
 - One `FirePulses` for every train not built: it restructures a hardware-tested workflow, and the `TakeUntil` fix covers the bug.
+
+## Audit round 4 (16 Nov 2026)
+
+- G-1, deferred to round 5: valves on any board. The workflow still opens BehaviorBoard-Main alone (main.bonsai and deliver.bonsai: WiredOutputs, the board piece, TriggerCalibratedPulse) and Channel is a DO line; reading every board's RewardValve lines by name needs a lib-open-rigs piece or combinator that finds a valve's board and line by its name (as LabRig.reward_valves() does in Python) and a board piece per board, so it rides round 5's lib release. Every rig has one board today. The file names by valve are done.
