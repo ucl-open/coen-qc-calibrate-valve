@@ -2,10 +2,9 @@
 # dome rig.yml, and the refusals), the valves parsed from Channels, the procedure expanded over them
 # (each sample once per valve, in turn; priming once per valve; one pulseGapMs), each burst's
 # PulseTrain for FirePulses, and the spouts' targets.
-# Run after app-rig-setup's workflows\check-workflow-builds.ps1 has compiled the extension, which leaves
-# Extensions.dll and its packages in %TEMP%\check-workflow-builds-<this repo's folder name>.
+# Run by tests\test_extensions.py (pytest), which builds the extension into -Bin with its packages.
 # Exit 0 when every check passes.
-param([string]$Bin = (Join-Path ([IO.Path]::GetTempPath()) ('check-workflow-builds-' + (Split-Path (Split-Path $PSScriptRoot) -Leaf))))
+param([Parameter(Mandatory = $true)][string]$Bin)
 $ErrorActionPreference = 'Stop'
 foreach ($dll in 'System.Reactive.Interfaces', 'System.Reactive.Core', 'System.Reactive.Linq', 'Bonsai.Core', 'YamlDotNet', 'Harp.Behavior', 'Harp.TimestampGeneratorGen3', 'Newtonsoft.Json', 'OpenRigs.Core', 'OpenRigs.Devices', 'Extensions') {
     $null = [Reflection.Assembly]::LoadFrom((Join-Path $Bin "$dll.dll"))

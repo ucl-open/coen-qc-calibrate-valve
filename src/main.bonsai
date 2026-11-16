@@ -402,6 +402,14 @@
             <Expression xsi:type="MulticastSubject">
               <Name>TriggerCalibratedPulse</Name>
             </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>ConfigRoot</Name>
+            </Expression>
+            <Expression xsi:type="PropertyMapping">
+              <PropertyMappings>
+                <Property Name="ConfigRoot" />
+              </PropertyMappings>
+            </Expression>
           </Nodes>
           <Edges>
             <Edge From="4" To="5" Label="Source1" />
@@ -431,6 +439,8 @@
             <Edge From="33" To="35" Label="Source1" />
             <Edge From="34" To="35" Label="Source2" />
             <Edge From="35" To="36" Label="Source1" />
+            <Edge From="37" To="38" Label="Source1" />
+            <Edge From="38" To="15" Label="Source2" />
           </Edges>
         </Workflow>
       </Expression>

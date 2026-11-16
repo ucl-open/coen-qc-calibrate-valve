@@ -106,3 +106,23 @@ def test_no_experiment_folder(wf):
     assert lint.no_experiment_folder_problems(wf) == []
     (node,) = [n for n in wf.root.iter(W + "Expression") if n.get("Path") == lint.NO_EXPERIMENT_FOLDER]
     assert node.findtext(W + "SubjectId") == "_valve-calibration_"
+
+
+def test_live_view_is_last_and_fed_by_nothing(wf):
+    # Both workflows stream their devices, as every lab workflow does. StreamDevices finds only subjects built before
+    # it, so nothing feeds it and nothing follows it (an edge into it builds it before the pieces: it streams nothing).
+    nodes, edges = lint.nodes_and_edges(wf.root.find(W + "Workflow"))
+    (live,) = [i for i, n in enumerate(nodes) if n.get(XSI) == "lv:StreamDevices"]
+    assert live == len(nodes) - 1 and not [e for e in edges if live in e[:2]]
+
+
+def test_the_balance_camera_reads_the_launch_s_config_root():
+    # Its ConfigRoot (where it reads the rig's own cameras, never to take one) is ReadLabRig's, so --property:ConfigRoot
+    # moves it with rig.yml; it was typed in.
+    wf = lint.Workflow(ROOT, "main.bonsai")
+    group = next(e for e in wf.root.iter(W + "Expression") if e.findtext(W + "Name") == "Hardware")
+    nodes, edges = lint.nodes_and_edges(group.find(W + "Workflow"))
+    (camera,) = [i for i, n in enumerate(nodes) if n.find(W + "Combinator") is not None and n.find(W + "Combinator").get(XSI) == "vid:UsbCamera"]
+    mappings = [a for a, b, _ in edges if b == camera and nodes[a].get(XSI) == "PropertyMapping"
+                and [p.get("Name") for p in nodes[a].iter(W + "Property")] == ["ConfigRoot"]]
+    assert [nodes[a].findtext(W + "Name") for m in mappings for a, b, _ in edges if b == m] == ["ConfigRoot"]

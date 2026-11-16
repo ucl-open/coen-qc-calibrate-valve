@@ -8,6 +8,7 @@
                  xmlns:dev="clr-namespace:OpenRigs.Devices;assembly=OpenRigs.Devices"
                  xmlns:vc="clr-namespace:CoenQcCalibrateValve;assembly=Extensions"
                  xmlns:sys="clr-namespace:System;assembly=mscorlib"
+                 xmlns:lv="clr-namespace:OpenRigs.LiveView;assembly=OpenRigs.LiveView"
                  xmlns="https://bonsai-rx.org/2018/workflow">
   <Description>Delivers water on one valve at a reward's pulse width (Pip, 11 Nov 2026), so a valve's calibration can be checked by weighing what it gives: Pulses pulses of PulseWidthMs on Channel at PulseGapMs, fired on the board's Harp clock as the calibration fires them (OpenRigs.Core FirePulses). rig-control's Calibrations page works out the width and the pulses from the valve's curve (1 ml at the reward size) and gives the curve's pulseGapMs; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml, read into the lab rig model (OpenRigs.Devices ReadLabRig). The hardware is the lab's device pieces, as in a session (OpenRigs.Devices ReadyGate, BehaviorBoard, ClockFromBoard, PulseOutputs, LickSpoutStage); a delivery has no experiment folder (OpenRigs.Logging NoExperimentFolder), so no piece logs. On a rig with a lick spout stage the spouts go to rig.yml's lickSpoutDefaultPosition first and out after (Extensions\Spouts.bonsai). Ready once the board's clock is set, its pulse setup has gone out and the spouts are in; Go fires the pulses, reporting each as the delivered metric; Finished once the last has closed. Nothing is written.</Description>
   <Workflow>
@@ -261,6 +262,13 @@
         <SpoutsForwardSteps>0</SpoutsForwardSteps>
         <DoneSubjectName>Delivered</DoneSubjectName>
         <DoneCommand>SpoutsOut</DoneCommand>
+      </Expression>
+      <Expression xsi:type="lv:StreamDevices">
+        <Name>LiveView</Name>
+        <Description>Streams every rig.yml device this workflow publishes (its &lt;Device&gt;.Data) to rig-control's live view (OpenRigs.LiveView): data on TCP 5556, video on 5558, as in every lab workflow. Last, with nothing feeding it: it finds only subjects built before it.</Description>
+        <lv:ConfigRoot>C:\Coen-Lab-Local\RigConfigs</lv:ConfigRoot>
+        <lv:DataPort>5556</lv:DataPort>
+        <lv:VideoPort>5558</lv:VideoPort>
       </Expression>
     </Nodes>
     <Edges>
