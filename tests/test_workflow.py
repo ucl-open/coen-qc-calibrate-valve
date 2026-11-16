@@ -4,6 +4,7 @@ hardware (open_rigs.rigs.workflow_lint): the lab's device pieces, as in a sessio
 
 import re
 import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -80,16 +81,25 @@ def test_every_pulse_is_timed_on_the_board_analog_data_time(wf):
             if lint.kind(node) == "core:FirePulses":
                 firings += 1
                 (clock,) = [nodes[a] for a, b, label in edges if b == i and label == "Source2"]
-                assert (clock.get(XSI), lint._name(clock)) == ("SubscribeSubject", "PulseClock")
+                assert (clock.get(XSI), lint._name(clock)) == ("SubscribeSubject", "Timestamp")
     assert firings == {"main.bonsai": 5, "deliver.bonsai": 1}[wf.file]
-    nodes, edges = lint.scope(wf.named("Hardware"))
-    clock = next(i for i, n in enumerate(nodes) if n.get(XSI) == "rx:BehaviorSubject" and lint._name(n) == "PulseClock")
-    chain = [clock]
-    while (feeds := [a for a, b, _ in edges if b == chain[-1]]):
-        chain.append(feeds[0])
-    described = [nodes[i].findtext(W + "Name") or nodes[i].findtext(W + "Selector")
-                 or next(iter(nodes[i])).get(XSI) for i in reversed(chain)]
-    assert described == ["BehaviorBoard-Main.Data", "beh:TimestampedAnalogData", "Seconds", "PulseClock"]
+    # Timestamp is ClockFromBoard's alone, and the installed OpenRigs.Devices (.23 on) publishes it from AnalogData.
+    declared = [n for n in wf.root.iter(W + "Expression") if "Subject" in (n.get(XSI) or "") and lint._name(n) == "Timestamp"
+                and n.get(XSI) != "SubscribeSubject"]
+    assert declared == [] and wf.text.count('Path="OpenRigs.Devices:BehaviorBoard.ClockFromBoard.bonsai"') == 1
+    config = (ROOT / ".bonsai" / "Bonsai.config").read_text(encoding="utf-8-sig")
+    version = re.search(r'<Package id="OpenRigs.Devices" version="([^"]+)"', config).group(1)
+    with zipfile.ZipFile(ROOT / "local_packages" / f"OpenRigs.Devices.{version}.nupkg") as z:
+        dll = z.read("lib/net472/OpenRigs.Devices.dll").decode("latin-1")
+    at = dll.index("<Description>The rig's clock from a Behavior board")
+    piece = ET.fromstring(dll[dll.rindex("<WorkflowBuilder", 0, at):dll.index("</WorkflowBuilder>", at) + 18].encode("latin-1"))
+    nodes = list(piece.find(f"{W}Workflow/{W}Nodes"))
+    feeds = {int(e.get("To")): int(e.get("From")) for e in piece.iter(W + "Edge")}
+    chain = [next(i for i, n in enumerate(nodes) if n.get(XSI) == "rx:BehaviorSubject" and lint._name(n) == "Timestamp")]
+    while chain[-1] in feeds:
+        chain.append(feeds[chain[-1]])
+    described = [nodes[i].findtext(W + "Selector") or next(iter(nodes[i])).get(XSI) or nodes[i].get(XSI) for i in reversed(chain)]
+    assert described[-4:] == ["harp:FilterMessageType", "beh:TimestampedAnalogData", "Seconds", "rx:BehaviorSubject"]
 
 
 def test_no_experiment_folder(wf):

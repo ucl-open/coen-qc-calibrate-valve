@@ -1,5 +1,9 @@
 # Backlog
 
+## 2026-11-16 PulseClock gone: ClockFromBoard's Timestamp is the 1 kHz analog data time (OpenRigs.Devices .23)
+
+Done: OpenRigs.Devices .23 (lib-open-rigs, unpushed) publishes `ClockFromBoard`'s `Timestamp` from the board's AnalogData events, as `PulseClock` did, so `PulseClock` is deleted and all six `FirePulses` (five in main, one in deliver) take `Timestamp`. Pulse spacing unchanged: each next pulse fires on the first 1 ms tick at least `pulseGapMs` (80) after the last one closes. `tests\test_workflow.py` holds every `FirePulses` to `Timestamp` and reads the installed package's `ClockFromBoard`. The Python tests need lib's lint (`uv pip install` the lib clone, `uv run --no-sync`) until `update-workflows` moves the open-rigs pin past 38aed51.
+
 ## 2026-11-16 Onto the lab's device pieces (lib-open-rigs 5ea5729)
 
 Done: the calibration and the delivery use lib's pieces, never a device opened by hand (Pip, 16 Nov 2026): `ReadyGate`, `BehaviorBoard`, `ClockFromBoard`, `PulseOutputs`, and `LickSpoutStage` behind the rig's stage (was the old `BehaviorBoard` include with its own `RigDevice`, `PulseController`, `BehaviorBoard.Timestamps` and `HarpLickSpoutStage`). `PathPrefix` declared and never published, so no piece logs. Every pulse fires as before: the same ValveTrains, DripTrains, TestTrain and DeliverTrain into the same `FirePulses` (unchanged in lib from 38aed51 to 5ea5729), on the same clock (the board's analog data time, now `PulseClock`), into the same `PulseController` (unchanged). Changes, each an improvement:
@@ -9,7 +13,7 @@ Done: the calibration and the delivery use lib's pieces, never a device opened b
 - `tests\rigs\box.yml`: camera `triggerFrequency` dropped (the lab rig model refuses it) and `pixelFormat: Mono8` written out.
 
 Suggestions for lib (lib frozen at 5ea5729 for this push):
-- `ClockFromBoard`'s `Timestamp` is the heartbeat, once a second, so `FirePulses` on it (DeliverReward on a box-clocked rig) fires one pulse a second. Publish it from the board's analog data events, as `BehaviorBoard.Timestamps` did, and this workflow's `PulseClock` goes.
+- Done in Devices .23 (above): `ClockFromBoard`'s `Timestamp` was the heartbeat, once a second, so `FirePulses` on it (DeliverReward on a box-clocked rig) fired one pulse a second.
 - `hardware_problems` knows only the pieces' Ready stages; this workflow announces its own (`CalibrationReady`, `DeliveryReady`: pulse setup out and spouts in), so `tests\test_workflow.py` expects that one problem. A `ReadyGate` property for a workflow's own stages, or lint reading local includes, would end the exception.
 - A conditional piece (a stage only where rig.yml has one) is invisible to `required_devices` here, as it sits in `Extensions\Spouts.bonsai`.
 
