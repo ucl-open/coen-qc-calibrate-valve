@@ -21,6 +21,6 @@ timestampGeneratorGen3:
 stepperDriver:
   a: { portName: COM5, usbSerial: AB0AAAAA }
   b: { portName: COM6, usbSerial: AB0BBBBB }
-lickSpoutDefaultPosition: { baseTransverse: 1000, leftRadial: 2000, rightRadial: 2000, leftElevation: 3000, rightElevation: 3000 }
+lickSpoutDefaultPosition: { baseTransverse: 1000, radialLeft: 2000, radialRight: 2000, elevationLeft: 3000, elevationRight: 3000 }
 zapit: { host: 127.0.0.1, port: 1488, hardwareTriggered: true }
 rootPath: C:\Coen-Lab-Local\Acquired-Data

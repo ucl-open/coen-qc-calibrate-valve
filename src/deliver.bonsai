@@ -10,34 +10,40 @@
                  xmlns:sys="clr-namespace:System;assembly=mscorlib"
                  xmlns:lv="clr-namespace:OpenRigs.LiveView;assembly=OpenRigs.LiveView"
                  xmlns="https://bonsai-rx.org/2018/workflow">
-  <Description>Delivers water on one of a rig's valves at a reward's pulse width (Pip, 11 Nov 2026), so a valve's calibration can be checked by weighing what it gives: Pulses pulses of PulseWidthMs on Channel at PulseGapMs, fired on the board's Harp time as the calibration fires them (OpenRigs.Core FirePulses). It sets no clock: it reads the behavior board's time as it runs (ClockFromBoard, SetClock false), which on a dome follows the timestamp generator and elsewhere is the board's own, and times the pulses only against each other on it. rig-control's Calibrations page works out the width and the pulses from the valve's curve (1 ml at the reward size) and gives the curve's pulseGapMs; the board's port, its RewardValve lines and the lick spout stage come from this machine's rig.yml, read into the lab rig model (OpenRigs.Devices ReadLabRig). The hardware is the lab's device pieces, as in a session (OpenRigs.Devices ReadyGate, BehaviorBoard, ClockFromBoard, PulseOutputs, LickSpoutStage); a delivery has no experiment folder (OpenRigs.Logging NoExperimentFolder), so no piece logs. On a rig with a lick spout stage the spouts go to rig.yml's lickSpoutDefaultPosition first and out after (Extensions\Spouts.bonsai). Ready once the board's time is read, its pulse setup has gone out and the spouts are in; Go fires the pulses, reporting each as the delivered metric; Finished once the last has closed. Nothing is written.</Description>
+  <Description>Delivers water on one of a rig's valves at a reward's pulse width (Pip, 11 Nov 2026), so a valve's calibration can be checked by weighing what it gives: Pulses pulses of PulseWidthMs on Valve at PulseGapMs, fired on the board's Harp time as the calibration fires them (OpenRigs.Core FirePulses). It sets no clock: it reads the behavior board's time as it runs (ClockFromBoard, SetClock false), which on a dome follows the timestamp generator and elsewhere is the board's own, and times the pulses only against each other on it. app-rig-control's Calibrations page works out the width and the pulses from the valve's curve (1 ml at the reward size) and gives the curve's pulseGapMs; the board's port, the valve's line and the lick spout stage come from this machine's rig.yml, read into the lab rig model (OpenRigs.Devices ReadLabRig). The hardware is the lab's device pieces, as in a session (OpenRigs.Devices ReadyGate, BehaviorBoard, ClockFromBoard, PulseOutputs, LickSpoutStage); a delivery has no experiment folder (OpenRigs.Logging NoExperimentFolder), so no piece logs. On a rig with a lick spout stage the spouts go to rig.yml's lickSpoutDefaultPosition first and out after (Extensions\Spouts.bonsai). Ready once the board's time is read, its pulse setup has gone out and the spouts are in; Go fires the pulses, reporting each as the delivered metric; Finished once the last has closed. Nothing is written.</Description>
   <Workflow>
     <Nodes>
       <Expression xsi:type="ExternalizedMapping">
-        <Property Name="ConfigRoot" DisplayName="ConfigRoot" Description="The root under which each machine has its own configuration directory, &lt;ConfigRoot&gt;\&lt;MACHINE-NAME&gt;\rig.yml." />
+        <Property Name="ConfigRoot" DisplayName="ConfigRoot" Description="The root under which each machine has its own configuration directory, &lt;ConfigRoot&gt;\&lt;RIG&gt;\rig.yml." />
       </Expression>
       <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:ReadLabRig.bonsai">
-        <Description>This machine's rig.yml (ConfigRoot\MACHINE\rig.yml) read once into the lab rig model: RigConfigs, RigFile, RigConfigDirectory and ConfigRoot, which every device piece reads. First, before anything that reads them.</Description>
+        <Description>This machine's rig.yml (ConfigRoot\&lt;RIG&gt;\rig.yml) read once into the lab rig model: RigConfigs, RigFile and ConfigRoot, which every device piece reads. First, before anything that reads them.</Description>
         <ConfigRoot>C:\Coen-Lab-Local\RigConfigs</ConfigRoot>
       </Expression>
       <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Logging:NoExperimentFolder.bonsai">
       </Expression>
+      <Expression xsi:type="ExternalizedMapping">
+        <Property Name="Valve" DisplayName="Valve" Description="The valve to deliver on, by its piece name, such as RewardValve-Left: a RewardValve in rig.yml's wiring on BehaviorBoard-Main. app-rig-control gives it at launch." />
+      </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Settings</Name>
-        <Description>RewardValveLines is the lines BehaviorBoard-Main's wiring gives a RewardValve in RigConfigs (OpenRigs.Devices WiredOutputs); it stops the workflow if rig.yml has no such board or no RewardValve on DO1 to DO3.</Description>
+        <Description>ValveWiring is the board and line rig.yml's wiring gives the valve Valve (RewardValve-Left) in RigConfigs (OpenRigs.Devices WiredRewardValve); it stops the workflow, naming the valves there are, if no line on BehaviorBoard-Main is that valve or the line is not one the board can pulse.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="SubscribeSubject">
               <Name>RigConfigs</Name>
             </Expression>
             <Expression xsi:type="Combinator">
-              <Combinator xsi:type="dev:WiredOutputs">
+              <Combinator xsi:type="dev:WiredRewardValve">
                 <dev:Board>BehaviorBoard-Main</dev:Board>
-                <dev:Device>RewardValve</dev:Device>
+                <dev:Valve>RewardValve-Left</dev:Valve>
               </Combinator>
             </Expression>
+            <Expression xsi:type="ExternalizedMapping">
+              <Property Name="Valve" />
+            </Expression>
             <Expression xsi:type="rx:AsyncSubject">
-              <Name>RewardValveLines</Name>
+              <Name>ValveWiring</Name>
             </Expression>
             <Expression xsi:type="rx:BehaviorSubject" TypeArguments="sys:Boolean">
               <rx:Name>SpoutsReady</rx:Name>
@@ -45,14 +51,15 @@
           </Nodes>
           <Edges>
             <Edge From="0" To="1" Label="Source1" />
-            <Edge From="1" To="2" Label="Source1" />
+            <Edge From="1" To="3" Label="Source1" />
+            <Edge From="2" To="1" Label="Source2" />
           </Edges>
         </Workflow>
       </Expression>
       <Expression xsi:type="ExternalizedMapping">
         <Property Name="SubjectId" />
         <Property Name="SessionId" />
-        <Property Name="LaunchId" Description="The launcher's run id; the launch's own, from rig-control." />
+        <Property Name="LaunchId" Description="The launcher's run id; the launch's own, from app-rig-control." />
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Initialization</Name>
@@ -95,25 +102,25 @@
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Hardware</Name>
-        <Description>The rig's pieces, as in a session (lib-open-rigs building-blocks): the Ready gate (ReadyGate), the behavior board BehaviorBoard-Main on rig.yml's port (BehaviorBoard, which clears any ZapitTrigger line however the workflow stops), its time, read and never set (ClockFromBoard, SetClock false: Timestamp, the board's time from its analog data events, 1 kHz, as it runs, following the timestamp generator on a dome and its own elsewhere, which the pulses are timed on relative to each other, as before the device pieces) and its pulsed lines (PulseOutputs: rig.yml's outputPulseEnable without the ZapitTrigger line, stopping at Start if a RewardValve line is not among them; BehaviorBoard-Main.TriggerCalibratedPulse fires one pulse of a given width on a line). Ready (ReadyGate) once the board's time is read (PieceStages, HarpClockRead, at its first heartbeat), PulseOutputs' setup has gone out (PulsesEnabled: pulse mode and widths on its lines, so a Go cannot fire a pulse on a line not yet in pulse mode) and DeliveryReady, this workflow's own stage (WorkflowStages), has come: the spouts are in (SpoutsReady).</Description>
+        <Description>The rig's pieces, as in a session (lib-open-rigs building-blocks): the Ready gate (ReadyGate), the behavior board BehaviorBoard-Main on rig.yml's port (BehaviorBoard, which clears any ZapitTrigger line however the workflow stops), its time, read and never set (ClockFromBoard, SetClock false: Timestamp, the board's time from its analog data events, 1 kHz, as it runs, following the timestamp generator on a dome and its own elsewhere, which the pulses are timed on relative to each other) and its pulsed lines (PulseOutputs: rig.yml's outputPulseEnable without the ZapitTrigger line, stopping at Start if a RewardValve line is not among them; BehaviorBoard-Main.TriggerCalibratedPulse fires one pulse of a given width on a line). Ready (ReadyGate) once the board's time is read (PieceStages, HarpClockRead, at its first heartbeat), PulseOutputs' setup has gone out (PulsesEnabled: pulse mode and widths on its lines, so a Go cannot fire a pulse on a line not yet in pulse mode) and DeliveryReady, this workflow's own stage (WorkflowStages), has come: the spouts are in (SpoutsReady).</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:ReadyGate.bonsai">
               <PieceStages>HarpClockRead, PulsesEnabled</PieceStages>
               <WorkflowStages>DeliveryReady</WorkflowStages>
             </Expression>
-            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.BehaviorBoard.bonsai">
+            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.bonsai">
               <Name>BehaviorBoard-Main</Name>
               <CommandsSubjectName>BehaviorBoard-Main.Commands</CommandsSubjectName>
               <DataSubjectName>BehaviorBoard-Main.Data</DataSubjectName>
             </Expression>
-            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.ClockFromBoard.bonsai">
+            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:ClockFromBoard.bonsai">
               <Board>BehaviorBoard-Main</Board>
               <SetClock>false</SetClock>
               <BoardDataSubjectName>BehaviorBoard-Main.Data</BoardDataSubjectName>
               <BoardCommandsSubjectName>BehaviorBoard-Main.Commands</BoardCommandsSubjectName>
             </Expression>
-            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:BehaviorBoard.PulseOutputs.bonsai">
+            <Expression xsi:type="IncludeWorkflow" Path="OpenRigs.Devices:PulseOutputs.bonsai">
               <Board>BehaviorBoard-Main</Board>
               <BoardCommandsSubjectName>BehaviorBoard-Main.Commands</BoardCommandsSubjectName>
               <BoardDataSubjectName>BehaviorBoard-Main.Data</BoardDataSubjectName>
@@ -144,18 +151,16 @@
         </Workflow>
       </Expression>
       <Expression xsi:type="ExternalizedMapping">
-        <Property Name="Channel" DisplayName="Channel" Description="The valve's behavior board line, such as DO1 (or 1): a RewardValve in rig.yml's wiring. rig-control gives it at launch." />
-        <Property Name="PulseWidthMs" DisplayName="PulseWidthMs" Description="Each pulse's width in ms: the reward size's, read off the valve's curve by rig-control." />
-        <Property Name="Pulses" DisplayName="Pulses" Description="How many pulses: 1 ml at the reward size, by rig-control." />
-        <Property Name="PulseGapMs" DisplayName="PulseGapMs" Description="The off-to-on time between pulses, in ms: the valve calibration file's pulseGapMs, which rig-control gives at launch." />
+        <Property Name="PulseWidthMs" DisplayName="PulseWidthMs" Description="Each pulse's width in ms: the reward size's, read off the valve's curve by app-rig-control." />
+        <Property Name="Pulses" DisplayName="Pulses" Description="How many pulses: 1 ml at the reward size, by app-rig-control." />
+        <Property Name="PulseGapMs" DisplayName="PulseGapMs" Description="The off-to-on time between pulses, in ms: the valve calibration file's pulseGapMs, which app-rig-control gives at launch." />
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Deliver</Name>
-        <Description>At Go, Pulses pulses of PulseWidthMs on Channel at PulseGapMs through BehaviorBoard-Main.TriggerCalibratedPulse (DeliverTrain, src\Extensions, into OpenRigs.Core FirePulses on the Harp clock), each reported as the delivered metric (how many so far); once the last has closed, Finished, and Delivered ends, which takes the spouts out. Stops the workflow if Channel is not a RewardValve in rig.yml.</Description>
+        <Description>At Go, Pulses pulses of PulseWidthMs on Valve at PulseGapMs through BehaviorBoard-Main.TriggerCalibratedPulse (DeliverTrain, src\Extensions, into OpenRigs.Core FirePulses on the Harp clock), each reported as the delivered metric (how many so far); once the last has closed, Finished, and Delivered ends, which takes the spouts out. The valve's line is ValveWiring's.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Channel" />
               <Property Name="PulseWidthMs" />
               <Property Name="Pulses" />
               <Property Name="PulseGapMs" />
@@ -169,14 +174,13 @@
               </Combinator>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
-              <Name>RewardValveLines</Name>
+              <Name>ValveWiring</Name>
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="rx:Zip" />
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="vc:DeliverTrain">
-                <vc:Channel>DO1</vc:Channel>
                 <vc:PulseWidthMs>1</vc:PulseWidthMs>
                 <vc:Pulses>0</vc:Pulses>
                 <vc:PulseGapMs>0</vc:PulseGapMs>
@@ -247,13 +251,13 @@
         </Workflow>
       </Expression>
       <Expression xsi:type="IncludeWorkflow" Path="Extensions\Spouts.bonsai">
-        <SpoutsForwardSteps>0</SpoutsForwardSteps>
+        <RadialInSteps>0</RadialInSteps>
         <DoneSubjectName>Delivered</DoneSubjectName>
         <DoneCommand>SpoutsOut</DoneCommand>
       </Expression>
       <Expression xsi:type="lv:StreamDevices">
         <Name>LiveView</Name>
-        <Description>Streams every rig.yml device this workflow publishes (its &lt;Device&gt;.Data) to rig-control's live view (OpenRigs.LiveView): data on TCP 5556, video on 5558, as in every lab workflow. Last, with nothing feeding it: it finds only subjects built before it.</Description>
+        <Description>Streams every rig.yml device this workflow publishes (its &lt;Device&gt;.Data) to app-rig-control's live view (OpenRigs.LiveView): data on TCP 5556, video on 5558, as in every lab workflow. Last, with nothing feeding it: it finds only subjects built before it.</Description>
         <lv:ConfigRoot>C:\Coen-Lab-Local\RigConfigs</lv:ConfigRoot>
         <lv:DataPort>5556</lv:DataPort>
         <lv:VideoPort>5558</lv:VideoPort>
@@ -261,8 +265,9 @@
     </Nodes>
     <Edges>
       <Edge From="0" To="1" Label="Source1" />
-      <Edge From="4" To="5" Label="Source1" />
-      <Edge From="7" To="8" Label="Source1" />
+      <Edge From="5" To="6" Label="Source1" />
+      <Edge From="8" To="9" Label="Source1" />
+      <Edge From="3" To="4" Label="Source1" />
     </Edges>
   </Workflow>
 </WorkflowBuilder>

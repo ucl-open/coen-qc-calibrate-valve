@@ -97,7 +97,7 @@ def test_the_pulsed_lines_are_the_valves(path):
 
 @pytest.mark.parametrize("path", RIGS, ids=lambda path: path.name)
 def test_each_valve_s_calibration_is_named_by_the_valve(path):
-    # Pip, 16 Nov 2026: calibration/RewardValve-<Name>.json, the valve's piece name, never its line (valve-DO1).
+    # Pip, 16 Nov 2026: calibration/RewardValve-<Name>.json, the valve's piece name, never its line.
     rig = LabRig.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
     outputs = yaml.safe_load(path.read_text(encoding="utf-8"))["behaviorBoard"]["main"]["pulseController"]["outputs"]
     assert {piece: outputs[line]["artefact"] for piece, (_, line) in rig.reward_valves().items()} ==         {piece: f"calibration/{piece}.json" for piece in rig.reward_valves()}
@@ -124,7 +124,7 @@ def test_every_pulse_is_timed_on_the_rig_s_clock(wf):
 
 
 def test_launch_id(wf):
-    # The launcher's run id, mapped down to ExperimentControl, so rig-control finds the run after a crash.
+    # The launcher's run id, mapped down to ExperimentControl, so app-rig-control finds the run after a crash.
     assert lint.launch_id_problems(wf) == []
 
 
@@ -154,12 +154,22 @@ def test_read_lab_rig_and_no_experiment_folder_are_top_level(wf):
 
 
 def test_the_balance_camera_is_lib_s_piece():
-    # The piece Camera-Temporary (OpenRigs.Devices UsbCamera) declares Camera-Temporary.ExposureUs, the name
-    # app-rig-control's Calibrations page sets; it starts at 15625 (1/64 s), as the camera opened by hand did.
+    # The piece Camera-Balance (OpenRigs.Devices UsbCamera) declares Camera-Balance.ExposureUs, the name
+    # app-rig-control's Calibrations page sets; it starts at 15625 (1/64 s).
     wf = lint.Workflow(ROOT, "main.bonsai")
     (node,) = [n for n in wf.root.iter(W + "Expression") if n.get("Path") == "OpenRigs.Devices:UsbCamera.bonsai"]
     assert node.findtext(W + "ExposureUs") == "15625"
     assert "vid:UsbCamera" not in wf.text and "CameraExposureUs" not in wf.text
+    assert "<Name>Camera-Balance.Data</Name>" in wf.text and "Camera-Temporary" not in wf.text
+
+
+def test_valves_are_launched_by_name(wf):
+    # A valve is its piece name, RewardValve-Left, found on its board and line by lib's WiredRewardValve; a board pin
+    # is a line, never a launch property.
+    top = lint.nodes_and_edges(lint.child(wf.root, W + "Workflow"))[0]
+    names = {p.get("Name") for n in top if n.get(XSI) == "ExternalizedMapping" for p in n.iter(W + "Property")}
+    assert names >= ({"Valve", "Valves"} if wf.file == "main.bonsai" else {"Valve"})
+    assert "Channel" not in wf.text and "RewardValveLines" not in wf.text
 
 
 def test_test_pulses_stop_at_go():

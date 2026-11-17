@@ -4,8 +4,7 @@ History is in `git log`.
 
 ## Open
 
-- Measure the in/out (Radial) motors' forward travel. Since 12 Nov 2026 the calibration moves both Radial motors (2 and 3) to 15000 steps from home before Ready (`Spouts.bonsai`'s `SpoutsForwardSteps`; Pip: "make it 15000"). There is no forward limit switch: past the end the motor stalls and grinds until the move's time is up. On each rig, step a Radial forward by hand until it stops, note the steps, and set the number below the smallest; if rigs differ, read it per rig.
-- The balance camera's names: `Camera-Temporary` is lib LiveView's rule for a device a workflow brings itself, and `Camera-Temporary.ExposureUs` (from 16 Nov 2026; `CameraExposureUs` before) is the parameter app-rig-control's Calibrations page sets. `Camera-Balance` and `Camera-Balance.ExposureUs` need lib LiveView to stream a named instance rig.yml lacks and app-rig-control's page renamed in the same sitting.
+- Measure the radial motors' travel in (towards the mouse). The calibration moves Radial-Left and Radial-Right to 15000 steps from home before Ready (`Spouts.bonsai`'s `RadialInSteps`; Pip: "make it 15000"). There is no limit switch at that end: past it the motor stalls and grinds until the move's time is up. On each rig, step a radial in by hand until it stops, note the steps, and set the number below the smallest; if rigs differ, read it per rig.
 - Run `main.bonsai` and `deliver.bonsai` once on a dome on the lib-open-rigs it pins (`.bonsai\Bonsai.config`) before relying on them: neither has run with `SetClock` false. Ready comes once the board's time is read, Calibrate All weighs every burst and the curve is written, and a delivery fires its pulses at the curve's gap.
 
 ## Decided
@@ -13,20 +12,13 @@ History is in `git log`.
 - The calibration and the delivery use lib's pieces, never a device opened by hand (Pip, 16 Nov 2026); no experiment folder (`NoExperimentFolder`).
 - The clock (Pip, 16 Nov 2026): one calibration (`main.bonsai`) and one delivery (`deliver.bonsai`) for every rig with valves, setting no clock. `ClockFromBoard` with `SetClock` false reads the board's time (on a dome it follows the generator); Ready waits for `HarpClockRead`.
 - Every pulse is fired by `FirePulses` on `ClockFromBoard`'s `Timestamp`.
-- `valve-weights.csv` and `valve-pulses.csv` go through OpenRigs.Logging's `CsvWriter`.
+- `<FileName>-weights.csv` and `<FileName>-pulses.csv` go through OpenRigs.Logging's `CsvWriter`.
 - Fits are app-rig-control's tested Python, never C# here (Bonsai measures, Python computes).
+- Valves by piece name (`Valve`, `Valves`, the weights file's `valve` column) through lib's `WiredRewardValve`; one board opened (`BehaviorBoard-Main`) until a rig has two. A rig with a second board (the arena) brings it in through its rig list, and the calibration then gets one firing branch per board, routed on the valve's board.
 
-## Audit round 1 (16 Nov 2026): not recommended
+## Not recommended
 
 - ManualPulses allowed on a RewardValve line (lib's lint, `workflow_lint.py:587-611`): flushing a valve is its job, and a calibrated pulse writes its own width.
 - No shared hardware include for the valve: one `main.bonsai` and `deliver.bonsai` for every rig, setting no clock, was chosen 16 Nov 2026 (see Decided).
 - Calibrate and deliver not merged: they differ in inputs, the camera and the fit guard.
-
-## Audit round 3 (16 Nov 2026): not recommended
-
-- Calibrate and deliver not merged: they are two jobs.
 - One `FirePulses` for every train not built: it restructures a hardware-tested workflow, and the `TakeUntil` fix covers the bug.
-
-## Audit round 4 (16 Nov 2026)
-
-- G-1, deferred to round 5: valves on any board. The workflow still opens BehaviorBoard-Main alone (main.bonsai and deliver.bonsai: WiredOutputs, the board piece, TriggerCalibratedPulse) and Channel is a DO line; reading every board's RewardValve lines by name needs a lib-open-rigs piece or combinator that finds a valve's board and line by its name (as LabRig.reward_valves() does in Python) and a board piece per board, so it rides round 5's lib release. Every rig has one board today. The file names by valve are done.

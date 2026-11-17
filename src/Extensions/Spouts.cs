@@ -11,19 +11,19 @@ using System.Reactive.Linq;
 namespace CoenQcCalibrateValve
 {
     [Combinator]
-    [Description("Each stage target with both radial (in/out) axes at RadialSteps from home, the rest kept; 0 keeps the target as it is.")]
+    [Description("Each stage target with both radial axes in (towards the mouse) at RadialInSteps from home, the rest kept; 0 keeps the target as it is.")]
     [WorkflowElementCategory(ElementCategory.Transform)]
-    public class SpoutsForward
+    public class RadialIn
     {
         [Description("Steps from home for both radial axes; 0 leaves the target unchanged.")]
-        public int RadialSteps { get; set; }
+        public int RadialInSteps { get; set; }
 
         public IObservable<SpoutPositions> Process(IObservable<SpoutPositions> source)
         {
-            return source.Select(target => Forward(target, RadialSteps));
+            return source.Select(target => In(target, RadialInSteps));
         }
 
-        public static SpoutPositions Forward(SpoutPositions target, int steps)
+        public static SpoutPositions In(SpoutPositions target, int steps)
         {
             if (steps == 0) return target;
             var values = target.ToArray();

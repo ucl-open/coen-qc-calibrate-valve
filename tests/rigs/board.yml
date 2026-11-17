@@ -14,5 +14,5 @@ behaviorBoard:
     wiring:
       DO1: { device: RewardValve, name: left }
       DO2: { device: RewardValve, name: right }
-      DO3: { device: Photodiode }
+      DIPort0: { device: Photodiode }
 rootPath: C:\Coen-Lab-Local\Acquired-Data

@@ -45,7 +45,7 @@ def test_the_settings_fit_the_calibration_schema():
 
 
 def test_the_schema_refuses_an_unknown_key():
-    # Audit, 15 Nov 2026: DispenseCalibration keeps only the keys it knows, so a misspelt one (primingSize for
+    # DispenseCalibration keeps only the keys it knows, so a misspelt one (primingSize for
     # primingPulseWidthMs) passed the model; the closed schema refuses it.
     data = yaml.safe_load(SETTINGS.read_text(encoding="utf-8"))
     data["procedure"]["primingSize"] = 500
@@ -98,13 +98,12 @@ def test_every_burst_opens_the_valve_about_as_long(settings):
 @pytest.mark.parametrize("path", RIGS, ids=lambda path: path.name)
 def test_a_test_rig_wires_reward_valves_on_pulse_lines(path):
     # A rig.yml every lab workflow takes (the lab rig model, OpenRigs.Devices ReadLabRig), with what the
-    # calibration reads: behaviorBoard main's port and its RewardValve lines on DO1 to DO3 (WiredOutputs).
+    # calibration reads: behaviorBoard main's port and its valves by name on lines it can pulse (WiredRewardValve).
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    LabRig.model_validate(data)
-    board = data["behaviorBoard"]["main"]
-    valves = [line for line, wired in board["wiring"].items() if wired["device"] == "RewardValve"]
-    assert board["portName"]
-    assert valves and set(valves) <= {"DO1", "DO2", "DO3"}
+    rig = LabRig.model_validate(data)
+    assert data["behaviorBoard"]["main"]["portName"]
+    assert set(rig.reward_valves()) == {"RewardValve-Left", "RewardValve-Right"}
+    assert {line for _, line in rig.reward_valves().values()} <= {"DO0", "DO1", "DO2", "DO3", "DOPort0", "DOPort1", "DOPort2"}
 
 
 def test_the_two_test_rigs_are_there():
