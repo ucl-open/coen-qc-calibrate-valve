@@ -17,7 +17,7 @@ package = false
 
 [tool.uv.sources]
 # lib-open-rigs' update-workflows moves this pin.
-open-rigs = {git = "https://github.com/Coen-Lab/lib-open-rigs", rev = "d798b2a0d29ec626cac2b0042a1bf2bef6424f1b"}
+open-rigs = {git = "https://github.com/Coen-Lab/lib-open-rigs", rev = "bb28c1fe3a4b2615b7afd39a1835cf2b6ea72a1c"}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
