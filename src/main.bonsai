@@ -107,7 +107,7 @@
                 <Parameter>
                   <Name>MinPulseWidthMs</Name>
                   <Value>20</Value>
-                  <Description>The shortest pulse width calibrated, in ms, set per rig on app-rig-control's Calibrations page: at Go every width of config\valve-calibration.yml is scaled so its smallest is this (the largest 5 times it), the pulses as written (ScaleWidths).</Description>
+                  <Description>Shortest calibrated pulse width, in ms. At Go every width in config\valve-calibration.yml is scaled so the smallest is this and the largest 5 times it.</Description>
                   <Minimum>5</Minimum>
                   <Maximum>100</Maximum>
                 </Parameter>
@@ -119,15 +119,15 @@
                 </Command>
                 <Command>
                   <Name>Drip</Name>
-                  <Description>Fires a drip while a weight is due, so a drop hanging on the spout falls before the reading: the text is its pulses, at the width being weighed on its valve (for the baseline, also the valve, such as 1 RewardValve-Right). A sample's drip pulses are added to its pulses.</Description>
+                  <Description>While a weight is due, fires pulses at the width being weighed so a hanging drop falls. Text: the pulses, and the valve for the baseline (1 RewardValve-Right).</Description>
                 </Command>
                 <Command>
                   <Name>Snapshot</Name>
-                  <Description>Saves the calibration camera's latest frame, full size, as calibration\runs\&lt;text&gt;.jpg beside rig.yml (app-rig-control gives the text as &lt;kind&gt;\&lt;run&gt;\&lt;still&gt;, so each still lands in its run's folder): app-rig-control's Calibrations page reads the balance from it.</Description>
+                  <Description>Saves the calibration camera's latest frame as calibration\runs\&lt;text&gt;.jpg beside rig.yml. The Calibrations page reads the balance from it.</Description>
                 </Command>
                 <Command>
                   <Name>Test</Name>
-                  <Description>Before Go, fires pulses to see a valve open at a width: the text is the width in ms, the pulses and the valve, such as 20 10 RewardValve-Left (TestTrain). Not counted anywhere. At Go the test pulses stop, a train still firing too (TakeUntil after its FirePulses), and later Tests are ignored.</Description>
+                  <Description>Before Go only, fires uncounted pulses to see a valve open; Go stops them. Text: width in ms, pulses and valve, such as 20 10 RewardValve-Left.</Description>
                 </Command>
               </Commands>
             </Expression>
