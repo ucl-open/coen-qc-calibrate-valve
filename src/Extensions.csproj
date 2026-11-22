@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="OpenRigs.Core" Version="0.1.1-coen-lab.40" />
+    <PackageReference Include="OpenRigs.Core" Version="0.1.1-coen-lab.41" />
     <PackageReference Include="OpenRigs.Devices" Version="0.1.1-coen-lab.57" />
   </ItemGroup>
 
