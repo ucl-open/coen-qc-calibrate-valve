@@ -22,3 +22,13 @@ History is in `git log`.
 - No shared hardware include for the valve: one `main.bonsai` and `deliver.bonsai` for every rig, setting no clock, was chosen 16 Nov 2026 (see Decided).
 - Calibrate and deliver not merged: they differ in inputs, the camera and the fit guard.
 - One `FirePulses` for every train not built: it restructures a hardware-tested workflow, and the `TakeUntil` fix covers the bug.
+
+## Audit 2026-11-22 (/audit-rigs, pipeline)
+
+Changed (b878575): CI runs `scripts\check-workflow.ps1` in place of the C# 5 and parse steps, and the header no longer calls the check private (P6S-L1).
+
+Deferred: a manual Checks run of the new step.
+
+Not changed, do not raise again without new information:
+
+- None in this repo this round.
