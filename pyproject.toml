@@ -2,7 +2,7 @@
 name = "coen-qc-calibrate-valve"
 description = "The valve calibration's settings and test rigs, checked against the lab's open-rigs models."
 license = "MIT"
-requires-python = ">=3.11, <3.12"
+requires-python = ">=3.13, <3.14"
 version = "0.1.0"
 dependencies = [
   "open-rigs",
