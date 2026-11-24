@@ -1049,7 +1049,6 @@
       <Expression xsi:type="lv:StreamDevices">
         <Name>LiveView</Name>
         <Description>Streams the devices in this machine's rig.yml that the workflow publishes, over ZeroMQ, for app-rig-control's Calibrations page: the calibration camera, a temporary device in no rig.yml (Camera-Balance.Data), as Camera-Balance.video on TCP 5558 (5 JPEG frames a second at 320 x 240), data on 5556. Live only: nothing is recorded. Last in the workflow, because it streams only subjects built before it.</Description>
-        <lv:ConfigRoot>C:\Coen-Lab-Local\RigConfigs</lv:ConfigRoot>
         <lv:DataPort>5556</lv:DataPort>
         <lv:VideoPort>5558</lv:VideoPort>
       </Expression>

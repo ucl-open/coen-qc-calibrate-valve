@@ -258,7 +258,6 @@
       <Expression xsi:type="lv:StreamDevices">
         <Name>LiveView</Name>
         <Description>Streams every rig.yml device this workflow publishes (its &lt;Device&gt;.Data) to app-rig-control's live view (OpenRigs.LiveView): data on TCP 5556, video on 5558, as in every lab workflow. Last, with nothing feeding it: it finds only subjects built before it.</Description>
-        <lv:ConfigRoot>C:\Coen-Lab-Local\RigConfigs</lv:ConfigRoot>
         <lv:DataPort>5556</lv:DataPort>
         <lv:VideoPort>5558</lv:VideoPort>
       </Expression>
