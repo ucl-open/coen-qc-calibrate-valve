@@ -24,7 +24,7 @@
 # weighing, app-rig-control fires drips of the same width until the balance moves (a drop can hang on
 # the spout); they are added to that burst's pulses in the weights file (Pip, 8 Nov 2026).
 # The widths are written for a 20 ms minimum: at Go they are scaled so the smallest is the rig's
-# MinPulseWidthMs, set on app-rig-control's Calibrations page, the largest 5 times it; the pulses stay as
+# minPulseWidthMs, the task file's (config\task-valve.yml, which app-rig-control writes), the largest 5 times it; the pulses stay as
 # written (Pip, 12 Nov 2026: "Max opening should be 5 x min, so all just scale").
 procedure:
   samples:

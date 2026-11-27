@@ -12,11 +12,12 @@
                  xmlns:scr="clr-namespace:Bonsai.Scripting.Expressions;assembly=Bonsai.Scripting.Expressions"
                  xmlns:dev="clr-namespace:OpenRigs.Devices;assembly=OpenRigs.Devices"
                  xmlns:vc="clr-namespace:CoenQcCalibrateValve;assembly=Extensions"
+                 xmlns:task="clr-namespace:CoenQcCalibrateValveTask;assembly=Extensions"
                  xmlns:sys="clr-namespace:System;assembly=mscorlib"
                  xmlns:harp="clr-namespace:Bonsai.Harp;assembly=Bonsai.Harp"
                  xmlns:beh="clr-namespace:Harp.Behavior;assembly=Harp.Behavior"
                  xmlns="https://bonsai-rx.org/2018/workflow">
-  <Description>Calibrates the reward valves on a rig's behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Valves, such as RewardValve-Left, RewardValve-Right): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: app-rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. app-rig-control's Calibrations page launches it with the valves by piece name (Valve or Valves) and FileName; the board's port, each valve's board and line (OpenRigs.Devices WiredRewardValve) and the lick spout stage come from this machine's rig.yml, read into the lab rig model (OpenRigs.Devices ReadLabRig), and every burst is fired on the board's Harp time at the procedure's one pulseGapMs (OpenRigs.Core FirePulses). It sets no clock: it reads the behavior board's time as it runs (ClockFromBoard, SetClock false), which on a dome follows the timestamp generator and elsewhere is the board's own, and times the pulses only against each other on it. The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, app-rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its pulses. The procedure (pulse widths, pulses) is config\valve-calibration.yml, its widths scaled at Go so the smallest is the MinPulseWidthMs parameter (ScaleWidths); before Go, Test commands fire a few pulses at a width so a valve's opening can be seen (TestTrain). The hardware is the lab's device pieces, as in a session (OpenRigs.Devices ReadyGate, BehaviorBoard, ClockFromBoard, PulseOutputs, LickSpoutStage); a calibration has no experiment folder (OpenRigs.Logging NoExperimentFolder), so no piece logs. On a rig whose rig.yml has a lick spout stage, OpenRigs.Devices LickSpoutStage homes it and moves the spouts to rig.yml's lickSpoutDefaultPosition, then both radial axes in (towards the mouse), before Ready, and back to the in position once the last burst is weighed (Extensions\Spouts.bonsai). Ready once the board's time is read, its pulse setup has gone out and the spouts are in; Go runs the procedure; Finished once every burst is weighed.</Description>
+  <Description>Calibrates the reward valves on a rig's behavior board, one or all of them: fires known pulse widths, weighs what each burst delivers, and writes the weights to calibration\&lt;FileName&gt;-weights.csv beside this machine's rig.yml. All of them is interleaved (Valves, such as RewardValve-Left, RewardValve-Right): each burst is fired on each valve in turn, each weighed before the next, into one container on one balance. It measures only: app-rig-control builds each valve's curve from its rows once the run completes and writes it to that valve's calibration\*.json, where the rig's experiment workflows read it. app-rig-control's Calibrations page launches it with the valves by piece name (Valve or Valves) and FileName; the board's port, each valve's board and line (OpenRigs.Devices WiredRewardValve) and the lick spout stage come from this machine's rig.yml, read into the lab rig model (OpenRigs.Devices ReadLabRig), and every burst is fired on the board's Harp time at the procedure's one pulseGapMs (OpenRigs.Core FirePulses). It sets no clock: it reads the behavior board's time as it runs (ClockFromBoard, SetClock false), which on a dome follows the timestamp generator and elsewhere is the board's own, and times the pulses only against each other on it. The balance is read by eye or off the camera: each weight is given with the Weight command when the weigh metric asks for it. Before it, app-rig-control fires Drip commands (more pulses of the width weighed) until the balance moves, so a drop hanging on the spout falls first; a sample's drip pulses are added to its pulses. The procedure (pulse widths, pulses) is config\valve-calibration.yml, its widths scaled at Go so the smallest is the task file's minPulseWidthMs (config\task-valve.yml, TaskPath, read at Go into TaskConfig; ScaleWidths); before Go, Test commands fire a few pulses at a width so a valve's opening can be seen (TestTrain). The hardware is the lab's device pieces, as in a session (OpenRigs.Devices ReadyGate, BehaviorBoard, ClockFromBoard, PulseOutputs, LickSpoutStage); a calibration has no experiment folder (OpenRigs.Logging NoExperimentFolder), so no piece logs. On a rig whose rig.yml has a lick spout stage, OpenRigs.Devices LickSpoutStage homes it and moves the spouts to rig.yml's lickSpoutDefaultPosition, then both radial axes in (towards the mouse), before Ready, and back to the in position once the last burst is weighed (Extensions\Spouts.bonsai). Ready once the board's time is read, its pulse setup has gone out and the spouts are in; Go runs the procedure; Finished once every burst is weighed.</Description>
   <Workflow>
     <Nodes>
       <Expression xsi:type="ExternalizedMapping">
@@ -87,10 +88,11 @@
         <Property Name="SubjectId" />
         <Property Name="SessionId" />
         <Property Name="LaunchId" Description="The launcher's run id; the launch's own, from app-rig-control." />
+        <Property Name="TaskPath" Description="The task file: app-rig-control's copy of the one chosen at launch, read at Go with the form's edits; from the editor, config\task-valve.yml." />
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Initialization</Name>
-        <Description>The experiment controller (OpenRigs.Control, ExperimentControl) over TCP 5561, which the rig agent relays. Weight takes each weight read off the balance. Drip fires a drip while a weight is due, published on DripCommands. Reports Recording at Go.</Description>
+        <Description>The experiment controller (OpenRigs.Control, ExperimentControl) over TCP 5561, which the rig agent relays; it declares no parameter: the one setting, minPulseWidthMs, is the task file's, which TaskFile reads at Go with the form's edits into TaskConfig (the generated CoenQcCalibrateValveTaskLogic). Weight takes each weight read off the balance. Drip fires a drip while a weight is due, published on DripCommands. Reports Recording at Go.</Description>
         <Workflow>
           <Nodes>
             <Expression xsi:type="ExternalizedMapping">
@@ -103,15 +105,7 @@
               <SessionId />
               <LaunchId />
               <ControlEndpoint>@tcp://127.0.0.1:5561</ControlEndpoint>
-              <Parameters>
-                <Parameter>
-                  <Name>MinPulseWidthMs</Name>
-                  <Value>20</Value>
-                  <Description>Shortest calibrated pulse width, in ms. At Go every width in config\valve-calibration.yml is scaled so the smallest is this and the largest 5 times it.</Description>
-                  <Minimum>5</Minimum>
-                  <Maximum>100</Maximum>
-                </Parameter>
-              </Parameters>
+              <Parameters />
               <Commands>
                 <Command>
                   <Name>Weight</Name>
@@ -156,12 +150,75 @@
                 <orcl:GraceSeconds>2</orcl:GraceSeconds>
               </Combinator>
             </Expression>
+            <Expression xsi:type="ExternalizedMapping">
+              <Property Name="Value" DisplayName="TaskPath" Description="The task file: app-rig-control's copy of the one chosen at launch; from the editor, the workflow's own default." />
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="StringProperty">
+                <Value>..\config\task-valve.yml</Value>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:Take">
+                <rx:Count>1</rx:Count>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="rx:AsyncSubject">
+              <Name>TaskPath</Name>
+              <Description>The task file's path, from Start (the launch property TaskPath; NoExperimentFolder stands in for LaunchSettings, so the workflow publishes it itself).</Description>
+            </Expression>
+            <Expression xsi:type="GroupWorkflow">
+              <Name>TaskFile</Name>
+              <Description>Reads the task file (TaskPath) at Go, as app-rig-control wrote it with the form's edits, into TaskConfig (the generated CoenQcCalibrateValveTaskLogic: taskParameters.minPulseWidthMs). A file the deserializer refuses stops the workflow at Go, before any burst is fired.</Description>
+              <Workflow>
+                <Nodes>
+                  <Expression xsi:type="SubscribeSubject">
+                    <Name>ExperimentGo</Name>
+                  </Expression>
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="rx:Take">
+                      <rx:Count>1</rx:Count>
+                    </Combinator>
+                  </Expression>
+                  <Expression xsi:type="SubscribeSubject">
+                    <Name>TaskPath</Name>
+                  </Expression>
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="rx:Zip" />
+                  </Expression>
+                  <Expression xsi:type="MemberSelector">
+                    <Selector>Item2</Selector>
+                  </Expression>
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="orc:ReadTextFile" />
+                  </Expression>
+                  <Expression xsi:type="task:DeserializeFromYaml">
+                    <task:Type xsi:type="TypeMapping" TypeArguments="task:CoenQcCalibrateValveTaskLogic" />
+                  </Expression>
+                  <Expression xsi:type="rx:AsyncSubject">
+                    <Name>TaskConfig</Name>
+                  </Expression>
+                </Nodes>
+                <Edges>
+                  <Edge From="0" To="1" Label="Source1" />
+                  <Edge From="1" To="3" Label="Source1" />
+                  <Edge From="2" To="3" Label="Source2" />
+                  <Edge From="3" To="4" Label="Source1" />
+                  <Edge From="4" To="5" Label="Source1" />
+                  <Edge From="5" To="6" Label="Source1" />
+                  <Edge From="6" To="7" Label="Source1" />
+                </Edges>
+              </Workflow>
+            </Expression>
           </Nodes>
           <Edges>
             <Edge From="0" To="1" Label="Source1" />
             <Edge From="2" To="3" Label="Source1" />
             <Edge From="4" To="5" Label="Source1" />
             <Edge From="5" To="6" Label="Source1" />
+            <Edge From="8" To="9" Label="Source1" />
+            <Edge From="9" To="10" Label="Source1" />
+            <Edge From="10" To="11" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
@@ -233,7 +290,7 @@
                     <Name>WeightEntries</Name>
                   </Expression>
                   <Expression xsi:type="SubscribeSubject">
-                    <Name>ExperimentGo</Name>
+                    <Name>TaskConfig</Name>
                   </Expression>
                   <Expression xsi:type="SubscribeSubject">
                     <Name>Procedure</Name>
@@ -261,17 +318,19 @@
                     <Name>BalanceReading</Name>
                   </Expression>
                   <Expression xsi:type="WorkflowOutput" />
-                  <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="orcl:ParameterValue">
-                      <orcl:Name>MinPulseWidthMs</orcl:Name>
-                    </Combinator>
+                  <Expression xsi:type="MemberSelector">
+                    <Selector>TaskParameters.MinPulseWidthMs</Selector>
+                  </Expression>
+                  <Expression xsi:type="Format">
+                    <Format>{0}</Format>
                   </Expression>
                 </Nodes>
                 <Edges>
                   <Edge From="1" To="2" Label="Source1" />
                   <Edge From="2" To="3" Label="Source1" />
                   <Edge From="4" To="13" Label="Source1" />
-                  <Edge From="13" To="6" Label="Source1" />
+                  <Edge From="13" To="14" Label="Source1" />
+                  <Edge From="14" To="6" Label="Source1" />
                   <Edge From="5" To="6" Label="Source2" />
                   <Edge From="6" To="7" Label="Source1" />
                   <Edge From="7" To="8" Label="Source1" />
@@ -447,7 +506,7 @@
               </Workflow>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
-              <Name>ExperimentGo</Name>
+              <Name>TaskConfig</Name>
             </Expression>
             <Expression xsi:type="SubscribeSubject">
               <Name>Procedure</Name>
@@ -919,10 +978,11 @@
                 </Edges>
               </Workflow>
             </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="orcl:ParameterValue">
-                <orcl:Name>MinPulseWidthMs</orcl:Name>
-              </Combinator>
+            <Expression xsi:type="MemberSelector">
+              <Selector>TaskParameters.MinPulseWidthMs</Selector>
+            </Expression>
+            <Expression xsi:type="Format">
+              <Format>{0}</Format>
             </Expression>
           </Nodes>
           <Edges>
@@ -938,7 +998,8 @@
             <Edge From="10" To="11" Label="Source1" />
             <Edge From="11" To="12" Label="Source1" />
             <Edge From="13" To="31" Label="Source1" />
-            <Edge From="31" To="15" Label="Source1" />
+            <Edge From="31" To="32" Label="Source1" />
+            <Edge From="32" To="15" Label="Source1" />
             <Edge From="14" To="15" Label="Source2" />
             <Edge From="15" To="16" Label="Source1" />
             <Edge From="16" To="17" Label="Source1" />

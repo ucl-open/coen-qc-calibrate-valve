@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=../src/DataSchemas/coen_qc_calibrate_valve_task.json
+# The task file: app-rig-control writes it at launch and again at Go with the form's edits, and the workflow reads the copy
+# (TaskPath) at Go. From the editor, the workflow reads this file as it is.
+# tests\test_task_schema.py checks it against the pydantic model (src\coen_qc_calibrate_valve\task.py), which also says what each field does.
+taskParameters:
+  minPulseWidthMs: 20         # Shortest calibrated pulse width, in ms (5 to 100): config\valve-calibration.yml's widths are scaled at Go so the smallest is this and the largest 5 times it

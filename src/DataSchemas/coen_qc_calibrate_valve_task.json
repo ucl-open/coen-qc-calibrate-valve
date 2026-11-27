@@ -1,0 +1,48 @@
+{
+  "$defs": {
+    "CoenQcCalibrateValveTaskLogic": {
+      "description": "Top-level task logic schema.",
+      "properties": {
+        "taskParameters": {
+          "$ref": "#/$defs/CoenQcCalibrateValveTaskParameters",
+          "title": "TaskParameters"
+        },
+        "version": {
+          "const": "0.1.0",
+          "default": "0.1.0",
+          "title": "Version",
+          "type": "string"
+        },
+        "name": {
+          "const": "CoenQcCalibrateValve",
+          "default": "CoenQcCalibrateValve",
+          "description": "Name of the task",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "taskParameters"
+      ],
+      "title": "CoenQcCalibrateValveTaskLogic",
+      "type": "object"
+    },
+    "CoenQcCalibrateValveTaskParameters": {
+      "description": "Task params.",
+      "properties": {
+        "minPulseWidthMs": {
+          "default": 20,
+          "description": "Shortest calibrated pulse width, in ms (5 to 100). At Go every width in config\\valve-calibration.yml is scaled so the smallest is this and the largest 5 times it",
+          "maximum": 100,
+          "minimum": 5,
+          "title": "MinPulseWidthMs",
+          "type": "integer"
+        }
+      },
+      "title": "CoenQcCalibrateValveTaskParameters",
+      "type": "object"
+    }
+  },
+  "$ref": "#/$defs/CoenQcCalibrateValveTaskLogic",
+  "title": "RootModel[CoenQcCalibrateValveTaskLogic]"
+}

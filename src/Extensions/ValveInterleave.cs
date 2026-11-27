@@ -278,7 +278,7 @@ namespace CoenQcCalibrateValve
 
     // A minimum width per rig (Pip, 12 Nov 2026: "set different min/max of calibration on different
     // rigs"; "Max opening should be 5 x min, so all just scale"): the procedure's widths are written
-    // for a 20 ms minimum and scaled at Go to app-rig-control's MinPulseWidthMs; the pulses stay as written.
+    // for a 20 ms minimum and scaled at Go to the task file's minPulseWidthMs; the pulses stay as written.
     [Combinator]
     [Description("The procedure's widths scaled at Go so the smallest is MinPulseWidthMs, each times MinPulseWidthMs over the smallest written, rounded half away from zero; pulses, gaps and priming as written. Input: (MinPulseWidthMs as text, the settings). In place, and idempotent, so every subscriber of the settings scales them alike.")]
     [WorkflowElementCategory(ElementCategory.Transform)]

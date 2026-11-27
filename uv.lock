@@ -28,7 +28,7 @@ wheels = [
 [[package]]
 name = "coen-qc-calibrate-valve"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "open-rigs" },
     { name = "pyyaml" },

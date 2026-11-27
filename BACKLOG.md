@@ -9,6 +9,7 @@ History is in `git log`.
 
 ## Decided
 
+- The one setting, the shortest pulse width, is the task file's (`config\task-valve.yml`, `taskParameters.minPulseWidthMs`, read at Go into `TaskConfig`), never a controller parameter (Pip, 27 Nov 2026: app-rig-control's Parameters tab goes).
 - The calibration and the delivery use lib's pieces, never a device opened by hand (Pip, 16 Nov 2026); no experiment folder (`NoExperimentFolder`).
 - The clock (Pip, 16 Nov 2026): one calibration (`main.bonsai`) and one delivery (`deliver.bonsai`) for every rig with valves, setting no clock. `ClockFromBoard` with `SetClock` false reads the board's time (on a dome it follows the generator); Ready waits for `HarpClockRead`.
 - Every pulse is fired by `FirePulses` on `ClockFromBoard`'s `Timestamp`.

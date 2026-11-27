@@ -3,6 +3,7 @@ hardware (open_rigs.rigs.workflow_lint): the lab's device pieces, as in a sessio
 16 Nov 2026). One of each for every rig with valves, setting no clock (Pip, 16 Nov 2026): ClockFromBoard with SetClock
 false reads the board's time, which on a dome follows the timestamp generator."""
 
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -194,3 +195,29 @@ def test_experiment_control_is_written_as_in_every_lab_workflow(wf):
 
 def test_no_debug_dump_in_the_repo():
     assert not (ROOT / "blocks.txt").exists()
+
+
+def test_the_minimum_width_is_the_task_file_s_and_no_controller_parameter():
+    # Pip, 27 Nov 2026: app-rig-control's Parameters tab goes, so no workflow keeps a controller parameter. The one the
+    # calibration had, MinPulseWidthMs, is config\task-valve.yml's taskParameters.minPulseWidthMs, read at Go into TaskConfig.
+    wf = lint.Workflow(ROOT, "main.bonsai")
+    assert "orcl:ParameterValue" not in wf.text and "<Parameters>" not in wf.text
+    # The workflow declares none (a piece's own, such as LickSpoutStage's SpoutStepSize, is lib-open-rigs').
+    assert [d for d in lint.control_declarations(wf) if d[1] == "parameter" and d[0] == "ExperimentControl"] == []
+    outside_descriptions = re.sub(r"<Description>.*?</Description>", "", wf.text, flags=re.S).replace("TaskParameters.MinPulseWidthMs", "")
+    assert "MinPulseWidthMs" not in outside_descriptions
+    # Both readers (the calibration's widths and ManualBalance's) take it from TaskConfig, published once.
+    assert wf.text.count("<Selector>TaskParameters.MinPulseWidthMs</Selector>") == 2
+    assert wf.text.count("<Name>TaskConfig</Name>") == 3
+
+
+def test_the_task_file_is_read_at_go_into_task_config():
+    # ExperimentGo zipped with TaskPath (known from Start, read at Go), deserialized as the generated model.
+    wf = lint.Workflow(ROOT, "main.bonsai")
+    assert any(e.findtext(W + "Name") == "TaskFile" for e in wf.root.iter(W + "Expression"))
+    text = wf.text
+    for part in ("<Name>ExperimentGo</Name>", "<Name>TaskPath</Name>", "orc:ReadTextFile", "CoenQcCalibrateValveTaskLogic", "<Name>TaskConfig</Name>"):
+        assert part in text
+    # No LaunchSettings (NoExperimentFolder declares SubjectId): the workflow publishes TaskPath itself and exposes it.
+    assert 'Path="OpenRigs.Control:LaunchSettings.bonsai"' not in wf.text
+    assert '<Property Name="TaskPath"' in wf.text and chr(92).join(("..", "config", "task-valve.yml")) in wf.text
