@@ -221,3 +221,74 @@ def test_the_task_file_is_read_at_go_into_task_config():
     # No LaunchSettings (NoExperimentFolder declares SubjectId): the workflow publishes TaskPath itself and exposes it.
     assert 'Path="OpenRigs.Control:LaunchSettings.bonsai"' not in wf.text
     assert '<Property Name="TaskPath"' in wf.text and chr(92).join(("..", "config", "task-valve.yml")) in wf.text
+
+
+def _graph(group):
+    """A group's nodes (its Workflow's Nodes, in order) and its edges as (from, to, label)."""
+    flow = group.find(W + "Workflow")
+    nodes = list(flow.find(W + "Nodes"))
+    edges = [(int(e.get("From")), int(e.get("To")), e.get("Label")) for e in flow.find(W + "Edges")]
+    return nodes, edges
+
+
+def _kind(node) -> str:
+    """A node as its type and what names it: its xsi:type (a Combinator's own), and its Name, Selector, Format or Value."""
+    inner = node.find(W + "Combinator")
+    typed = (inner if inner is not None else node).get(XSI) or ""
+    named = next((c.text for c in node.iter() if c.tag.split("}")[-1] in ("Name", "Selector", "Format", "Value", "Count")
+                  and c.text and c is not node), "")
+    return f"{typed.split(':')[-1]} {named}".strip()
+
+
+def test_the_task_path_and_task_file_are_wired_as_go_needs_them():
+    # Audit r1, finding 4 (27 Nov 2026): Bonsai may not be run tonight, so the wiring is checked here edge by edge, and
+    # scripts\check-workflow.ps1 builds it with Bonsai's own builders (every type, selector, subject and mapping), and
+    # tests\interleave.ps1 reads the task file with the generated reader. Initialization: the launch's TaskPath (the
+    # outer mapping) into the StringProperty, its first value kept in the TaskPath subject from Start.
+    wf = lint.Workflow(ROOT, "main.bonsai")
+    top = wf.root.find(W + "Workflow").find(W + "Nodes")
+    assert any(p.get("Name") == "TaskPath" for n in top if n.get(XSI) == "ExternalizedMapping" for p in n)
+    init = next(n for n in top if n.findtext(W + "Name") == "Initialization")
+    nodes, edges = _graph(init)
+    path = next(i for i, n in enumerate(nodes) if n.get(XSI) == "ExternalizedMapping"
+                and any(p.get("Name") == "Value" and p.get("DisplayName") == "TaskPath" for p in n))
+    chain = [path]
+    while (nxt := [t for f, t, _ in edges if f == chain[-1]]):
+        assert len(nxt) == 1
+        chain.append(nxt[0])
+    assert [_kind(nodes[i]) for i in chain[1:]] == [r"StringProperty ..\config\task-valve.yml", "Take 1", "AsyncSubject TaskPath"]
+    # TaskFile: Go's first value zipped with TaskPath, the path read and deserialized as the generated model into the
+    # TaskConfig AsyncSubject, which emits once the file is read (Take(1) ends the Zip, so the subject completes).
+    group = next(n for n in nodes if n.findtext(W + "Name") == "TaskFile")
+    nodes, edges = _graph(group)
+    assert [_kind(n) for n in nodes] == ["SubscribeSubject ExperimentGo", "Take 1", "SubscribeSubject TaskPath", "Zip",
+                                         "MemberSelector Item2", "ReadTextFile", "DeserializeFromYaml", "AsyncSubject TaskConfig"]
+    assert sorted(edges) == [(0, 1, "Source1"), (1, 3, "Source1"), (2, 3, "Source2"), (3, 4, "Source1"), (4, 5, "Source1"),
+                             (5, 6, "Source1"), (6, 7, "Source1")]
+    assert nodes[6].find(f"{{clr-namespace:CoenQcCalibrateValveTask;assembly=Extensions}}Type").get("TypeArguments") == \
+        "task:CoenQcCalibrateValveTaskLogic"
+
+
+def test_each_reader_of_the_minimum_takes_it_from_task_config_as_scale_widths_text():
+    # Both readers (the calibration's widths and ManualBalance's): TaskConfig, its MinPulseWidthMs, as text ({0}) into the
+    # Zip ScaleWidths takes (Source1), the procedure its Source2, as the parameter's ParameterValue gave it before.
+    wf = lint.Workflow(ROOT, "main.bonsai")
+    found = 0
+    for group in wf.root.iter(W + "Expression"):
+        flow = group.find(W + "Workflow")
+        if flow is None or flow.find(W + "Nodes") is None:
+            continue
+        nodes, edges = _graph(group)
+        for i, node in enumerate(nodes):
+            if _kind(node) != "MemberSelector TaskParameters.MinPulseWidthMs":
+                continue
+            found += 1
+            into = [(f, t, label) for f, t, label in edges if t == i]
+            assert len(into) == 1 and _kind(nodes[into[0][0]]) == "SubscribeSubject TaskConfig"
+            out = [t for f, t, _ in edges if f == i]
+            assert len(out) == 1 and _kind(nodes[out[0]]) == "Format {0}"
+            zip_ = [(t, label) for f, t, label in edges if f == out[0]]
+            assert len(zip_) == 1 and zip_[0][1] == "Source1"
+            other = [_kind(nodes[f]) for f, t, label in edges if t == zip_[0][0] and label == "Source2"]
+            assert other == ["SubscribeSubject Procedure"], other
+    assert found == 2

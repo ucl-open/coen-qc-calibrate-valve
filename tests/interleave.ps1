@@ -138,6 +138,23 @@ Check "min 15: scaling twice is scaling once ($(@($twice | ForEach-Object { $_.P
 Check 'min 20: the procedure as written' ((@($scale::Scale((& $ladder), 20).Procedure.Samples | ForEach-Object { $_.PulseWidthMs }) -join ',') -eq '40,20,25,100,30,70,50')
 foreach ($bad in '', '4', '101', '12.5', 'twenty') { Check "MinPulseWidthMs '$bad' refused" (Refused { $scale::ParseMin($bad) }) }
 
+# The task file (27 Nov 2026; audit r1, findings 4 and 5): read as main.bonsai's TaskFile reads it at Go (the generated
+# CoenQcCalibrateValveTask.DeserializeFromYaml), its minPulseWidthMs as the text ScaleWidths takes (Format {0}), and
+# config\valve-calibration.yml (read as the workflow reads it, OpenRigs.Core's DeserializeFromYaml) scaled to it.
+$taskType = [CoenQcCalibrateValveTask.CoenQcCalibrateValveTaskLogic]
+$readTask = [CoenQcCalibrateValveTask.DeserializeFromYaml].GetMethod('Process', [Reflection.BindingFlags]'NonPublic, Static').MakeGenericMethod($taskType)
+function TaskMin($text) { '{0}' -f (Items $taskType ($readTask.Invoke($null, @((Obs ([string]) $text)))))[0].TaskParameters.MinPulseWidthMs }
+$config = Join-Path (Split-Path $PSScriptRoot) 'config'
+Check 'config\task-valve.yml: minPulseWidthMs 20, as the workflow reads it' ((TaskMin ([IO.File]::ReadAllText((Join-Path $config 'task-valve.yml')))) -eq '20')
+Check "app-rig-control's copy with 35 (as its header and the form's edit write it): 35" ((TaskMin "# Written by app-rig-control at Go`ntaskParameters:`n  minPulseWidthMs: 35`n") -eq '35')
+$none = TaskMin "taskParameters: {}`n"
+Check "a file without minPulseWidthMs reads $none, which ScaleWidths refuses at Go: never a silent 20 ms" (($none -eq '0') -and (Refused { $scale::ParseMin($none) }))
+$calType = [OpenRigs.Core.Calibration.DispenseCalibration]
+$readCal = [OpenRigs.Core.Calibration.DeserializeFromYaml].GetMethod('Process', [Reflection.BindingFlags]'NonPublic, Static').MakeGenericMethod($calType)
+$procedure = (Items $calType ($readCal.Invoke($null, @((Obs ([string]) ([IO.File]::ReadAllText((Join-Path $config 'valve-calibration.yml'))))))))[0]
+$widths = @($scale::Scale($procedure, $scale::ParseMin((TaskMin "taskParameters:`n  minPulseWidthMs: 35`n"))).Procedure.Samples | ForEach-Object { $_.PulseWidthMs })
+Check "config\valve-calibration.yml at the task file's 35: widths 35 to 175 ($($widths -join ','))" ((($widths | Measure-Object -Minimum).Minimum -eq 35) -and (($widths | Measure-Object -Maximum).Maximum -eq 175))
+
 # Test (Pip, 12 Nov 2026): a width tested before Start, on the valve named, at the procedure's gap.
 $test = [CoenQcCalibrateValve.TestTrain]::Parse('25 10 RewardValve-Right')
 Check "Test '25 10 RewardValve-Right' is 10 pulses of 25 ms on RewardValve-Right" (($test.Item1 -eq 25) -and ($test.Item2 -eq 10) -and ($test.Item3 -eq 'RewardValve-Right'))

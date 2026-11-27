@@ -70,3 +70,16 @@ def test_the_generated_csharp_has_every_schema_field():
     names = set(re.findall(r'JsonPropertyAttribute\("([^"]+)"', GENERATED.read_text(encoding="utf-8")))
     assert names == _property_names(json.loads(SCHEMA.read_text(encoding="utf-8")))
     assert "minPulseWidthMs" in names
+
+
+def test_the_minimum_is_required_with_no_default():
+    # Audit r1, finding 5 (27 Nov 2026): a task file without minPulseWidthMs ran at 20 ms whatever the rig's minimum was.
+    # Now the model and the schema refuse it (app-rig-control refuses the launch), and the generated C# has no default:
+    # it reads 0, which ScaleWidths refuses at Go (tests\interleave.ps1).
+    for doc in ({"taskParameters": {}}, {}):
+        with pytest.raises(ValidationError):
+            CoenQcCalibrateValveTaskLogic.model_validate(doc)
+        assert list(jsonschema.Draft202012Validator(json.loads(SCHEMA.read_text(encoding="utf-8"))).iter_errors(doc))
+    generated = GENERATED.read_text(encoding="utf-8")
+    assert '"minPulseWidthMs", Required=Newtonsoft.Json.Required.Always' in generated
+    assert "_minPulseWidthMs = " not in generated.split("public CoenQcCalibrateValveTaskParameters()", 1)[1].split("}", 1)[0]

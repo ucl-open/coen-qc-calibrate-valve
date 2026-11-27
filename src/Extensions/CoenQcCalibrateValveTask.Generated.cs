@@ -133,7 +133,6 @@ namespace CoenQcCalibrateValveTask
     
         public CoenQcCalibrateValveTaskParameters()
         {
-            _minPulseWidthMs = 20;
         }
     
         protected CoenQcCalibrateValveTaskParameters(CoenQcCalibrateValveTaskParameters other)
@@ -144,7 +143,7 @@ namespace CoenQcCalibrateValveTask
         /// <summary>
         /// Shortest calibrated pulse width, in ms (5 to 100). At Go every width in config\valve-calibration.yml is scaled so the smallest is this and the largest 5 times it
         /// </summary>
-        [Newtonsoft.Json.JsonPropertyAttribute("minPulseWidthMs")]
+        [Newtonsoft.Json.JsonPropertyAttribute("minPulseWidthMs", Required=Newtonsoft.Json.Required.Always)]
         [YamlDotNet.Serialization.YamlMemberAttribute(Alias="minPulseWidthMs")]
         [System.ComponentModel.DescriptionAttribute("Shortest calibrated pulse width, in ms (5 to 100). At Go every width in config\\va" +
             "lve-calibration.yml is scaled so the smallest is this and the largest 5 times it" +
